@@ -25,6 +25,7 @@ import sqlalchemy
 import adbb
 import adbb.anames
 import adbb.mapper
+import adbb.fileinfo
 from adbb.db import *
 from adbb.commands import *
 from adbb.errors import *

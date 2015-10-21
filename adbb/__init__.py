@@ -25,7 +25,7 @@ from adbb.link import AniDBLink
 
 from adbb.animeobjs import Anime, AnimeTitle, Episode, File
 
-from adbb.fileinfo import guess_episode_numbers
+from adbb.anames import get_titles
 
 anidb_client_name = "adbb"
 anidb_client_version = 2
