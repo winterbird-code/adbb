@@ -193,7 +193,7 @@ class AnimeTitle:
         self.title = title
 
     def __repr__(self):
-        return "AnimeTitle({}, {}, {})".format(
+        return "AnimeTitle(type='{}', lang='{}', title='{}')".format(
                 self.titletype,
                 self.lang,
                 self.title)
@@ -304,7 +304,7 @@ class Episode(AniDBObj):
         return getattr(self.db_data, name, None)
 
     def __repr__(self):
-        return "Episode(anime='{}', episode_number='{}', eid={})".format(
+        return "Episode(anime={}, episode_number='{}', eid={})".format(
                 self._anime, self._episode_number, self._eid)
 
 class File(AniDBObj):
@@ -585,7 +585,7 @@ class File(AniDBObj):
         return getattr(self.db_data, name, None)
 
     def __repr__(self):
-        return "File(path={}, fid={}, anime={}, episode={})".\
+        return "File(path='{}', fid={}, anime={}, episode={})".\
                 format(
                     self._path, 
                     self._fid, 
