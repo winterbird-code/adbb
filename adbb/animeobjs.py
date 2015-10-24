@@ -321,9 +321,8 @@ class File(AniDBObj):
     def anime(self):
         if self._anime:
             return self._anime
-        if not self.db_data:
-            self._get_db_data()
-        if self.db_data and self.db_data.aid:
+        self.update()
+        if not self._anime and self.db_data and self.db_data.aid:
             self._anime = Anime(self.db_data.aid)
         return self._anime
 
@@ -331,9 +330,8 @@ class File(AniDBObj):
     def episode(self):
         if self._episode:
             return self._episode
-        if not self.db_data:
-            self._get_db_data()
-        if self.db_data and self.db_data.eid:
+        self.update()
+        if not self._episode and self.db_data and self.db_data.eid:
             self._episode = Episode(eid=self.db_data.eid)
         return self._episode
 
@@ -374,13 +372,10 @@ class File(AniDBObj):
     def ed2khash(self):
         if self._ed2khash:
             return self._ed2khash
-        self.update()
-        return self.db_data.ed2khash
-
-    @property
-    def ed2khash(self):
-        if self._ed2khash:
+        elif self._path:
+            self._ed2khash = adbb.fileinfo.get_file_hash(self._path)
             return self._ed2khash
+        adbb._log.debug("path not set, trying to fetch ed2khash from anidb")
         self.update()
         return self.db_data.ed2khash
 
@@ -395,7 +390,6 @@ class File(AniDBObj):
         if path:
             self._path = path
             self._size = adbb.fileinfo.get_file_size(self._path)
-            self._ed2khash = adbb.fileinfo.get_file_hash(self._path)
         if fid:
             self._fid = int(fid)
         if anime:
@@ -414,6 +408,10 @@ class File(AniDBObj):
             res = self._db.query(FileTable).filter_by(fid=self._fid).all()
         else:
             res = self._db.query(FileTable).filter_by(path=self._path).all()
+            if res and res[0].size != self._size:
+                self._db.delete(res[0])
+                self._db_commit()
+                res = []
         if len(res) > 0:
             adbb._log.debug("Fetched file data from database: {}".format(res[0]))
             self.db_data = res[0]
@@ -437,6 +435,8 @@ class File(AniDBObj):
                     if episodes:
                         self._multiep = episodes
                         self._episode = Episode(anime=aid, epno=episodes[0])
+        else:
+            adbb._log.debug("Could not find file in anidb.")
 
 
     def _anidb_file_data_callback(self, res):
@@ -482,7 +482,7 @@ class File(AniDBObj):
         if self._path:
             finfo['path'] = self._path
             finfo['size'] = self._size
-            finfo['ed2khash'] = self._ed2khash
+            finfo['ed2khash'] = self.ed2khash
 
         if not 'aid' in finfo:
             finfo['aid'] = 0
@@ -521,7 +521,7 @@ class File(AniDBObj):
         if self._path:
             finfo['path'] = self._path
             finfo['size'] = self._size
-            finfo['ed2khash'] = self._ed2khash
+            finfo['ed2khash'] = self.ed2khash
 
         if self.db_data:
             self.db_data.update(**finfo)
@@ -547,23 +547,35 @@ class File(AniDBObj):
                     fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
                     amask=adbb.mapper.getFileBitsA([])
                     )
+            adbb._log.debug("sending file request with fid")
             self._anidb_link.request(req, self._anidb_file_data_callback)
-        elif self._size and self._ed2khash:
+        elif self._size and self._path:
             self._file_updated.clear()
             req = FileCommand(
                     size=self._size, 
-                    ed2k=self._ed2khash, 
+                    ed2k=self.ed2khash, 
                     fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
                     amask=adbb.mapper.getFileBitsA([]))
+            adbb._log.debug("sending file request with size and hash")
             self._anidb_link.request(req, self._anidb_file_data_callback)
+        self._file_updated.wait()
         if self._fid:
+            adbb._log.debug("fetching mylist with fid")
             req = MyListCommand(fid=self._fid)
         else:
+            if not (self.db_data and self.db_data.aid) and self._path:
+                aid, episodes = self._guess_anime_ep_from_file()
+                if aid and episodes:
+                    if self.db_data:
+                        self.db_data.aid = aid
+                    self._anime = Anime(aid)
+                    self._episode = Episode(anime=self._anime,epno=episodes[0])
+            adbb._log.debug("fetching mylist with aid and epno")
             req = MyListCommand(
                     aid=self.anime.aid,
                     epno=self.episode.episode_number)
+        adbb._log.debug("sending mylist request")
         self._anidb_link.request(req, self._anidb_mylist_data_callback)
-        self._file_updated.wait()
         self._mylist_updated.wait()
         self._updated.set()
 
