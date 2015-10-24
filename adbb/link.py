@@ -210,7 +210,7 @@ class AniDBLink(threading.Thread):
                 willpop.append(cmd.tag)
 
         for tag in willpop:
-            if isinstance(cmd, AuthCommand):
+            if isinstance(cmd, adbb.commands.AuthCommand):
                 self._reauthenticate()
             cmd = self.cmd_queue.pop(tag)
             cmd.handle_timeout(self)
