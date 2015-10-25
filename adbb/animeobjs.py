@@ -563,13 +563,20 @@ class File(AniDBObj):
             adbb._log.debug("fetching mylist with fid")
             req = MyListCommand(fid=self._fid)
         else:
-            if not (self.db_data and self.db_data.aid) and self._path:
-                aid, episodes = self._guess_anime_ep_from_file()
-                if aid and episodes:
-                    if self.db_data:
-                        self.db_data.aid = aid
-                    self._anime = Anime(aid)
-                    self._episode = Episode(anime=self._anime,epno=episodes[0])
+            if self._path and not (self._anime and self._episode):
+                if self.db_data and self.db_data.aid:
+                    self._anime = Anime(self.db_data.aid)
+                if self.db_data and self.db_data.eid:
+                    self._episode = Episode(eid=self.db_data.eid)
+                if not (self._anime and self._episode):
+                    aid, episodes = self._guess_anime_ep_from_file()
+                    if aid and episodes:
+                        if self.db_data and not self.db_data.aid:
+                            self.db_data.aid = aid
+                        if not self._anime:
+                            self._anime = Anime(aid)
+                        if not self._episode:
+                            self._episode = Episode(anime=self._anime,epno=episodes[0])
             adbb._log.debug("fetching mylist with aid and epno")
             req = MyListCommand(
                     aid=self.anime.aid,
