@@ -175,7 +175,7 @@ class AniDBLink(threading.Thread):
             elif resp.rescode in ('501', '506', '403'):
                 self._authed.clear()
                 self._reauthenticate()
-                self.tag.remove(resp.restag)
+                self.tags.remove(resp.restag)
                 self.request(cmd, cmd.callback)
                 continue
             elif resp.rescode in ('203', '500', '503'):
@@ -191,7 +191,7 @@ class AniDBLink(threading.Thread):
                 self.banned += 1
                 self._authed.clear()
                 self._reauthenticate()
-                self.tag.remove(resp.restag)
+                self.tags.remove(resp.restag)
                 self.request(cmd, cmd.callback)
 
             resp.handle()
