@@ -261,6 +261,10 @@ class Episode(AniDBObj):
         self._fetch_anidb_data(force)
 
     def _anidb_data_callback(self, res):
+        if res.rescode == "340":
+            adbb._log.warning("No such episode in anidb: {}".format(self))
+            self._updated.set()
+            return
         einfo = res.datalines[0]
         new = None
         for attr, data in einfo.items():
