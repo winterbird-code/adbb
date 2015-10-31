@@ -18,64 +18,48 @@
 import datetime
 import hashlib
 import socket, sys, zlib
-from time import time, sleep
 import threading
+from time import time, sleep
+from collections import deque
+
 from adbb.responses import ResponseResolver
 from adbb.errors import *
 import adbb.commands
 
 #from Crypto.Cipher import AES
 
-
 class AniDBLink(threading.Thread):
-    def __init__(
-            self, 
-            user, 
-            pwd, 
-            server='api.anidb.info', 
-            port=9000, 
-            myport=9876, 
-            timeout=20, 
-            logPrivate=False):
+    def __init__(self,
+            user,
+            pwd,
+            host='api.anidb.info',
+            port=9000,
+            myport=9876,
+            timeout=20):
         super(AniDBLink, self).__init__()
-        self.server = server
-        self.port = port
-        self.user = user
-        self.pwd = pwd
-        self.target = (server, port)
-        self.timeout = timeout
+        self._user = user
+        self._pwd = pwd
+        self._server = (host, port)
+        self._queue = deque()
 
-        self.myport = 0
-        self.bound = self.connectSocket(myport, self.timeout)
+        self._last_packet = 0
+        self._counter = 0
+        self._banned = 0
 
-        self.cmd_queue = {None:None}
-        self.resp_tagged_queue = {}
-        self.resp_untagged_queue = []
-        self.current_tag = 0
-        self.tags = []
-
-        # delaying vars
-        self.lastpacket = time()
-        self.counter = 0
-        self.delay = 2
-        # banned indicates number of retries done.
-        # when banned > 0 the sender will wait max(2^banned, 48) hours until
-        # trying again. banned == 0 == not banned :)
-        self.banned = 0
-
-        self.session = None
-        self.crypt = None
-
-        self.log = adbb._log
-        self.logPrivate = logPrivate
+        self._current_tag = 0
+        self._listener = AniDBListener(self, myport=myport,timeout=timeout)
 
         self._stop = threading.Event()
-        self._auth_lock = threading.Lock()
-        self._authenticating = threading.Event()
         self._authed = threading.Event()
-        self._quitting = False
-        self.setDaemon(True)
+        self._authenticating = threading.Event()
+        self._auth_lock = threading.Lock()
+        self._session = None
+
+        self.daemon = True
         self.start()
+
+    def _logout_handler(self, resp):
+        self._stop.set()
 
     def _reauthenticate(self):
         with self._auth_lock:
@@ -84,8 +68,8 @@ class AniDBLink(threading.Thread):
             self._authenticating.set()
 
         req = adbb.commands.AuthCommand(
-                self.user, 
-                self.pwd,
+                self._user, 
+                self._pwd,
                 adbb.anidb_api_version,
                 adbb.anidb_client_name,
                 adbb.anidb_client_version,
@@ -93,212 +77,201 @@ class AniDBLink(threading.Thread):
         self.request(req, self._auth_handler)
 
     def _auth_handler(self, resp):
-        self.banned = 0
+        self._banned = 0
         with self._auth_lock:
             self._authed.set()
             self._authenticating.clear()
 
-    def _logout_handler(self, resp):
-        self._stop.set()
 
-    def connectSocket(self, myport, timeout):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.settimeout(timeout)
-        portlist = [myport] + [7654]
-        for port in portlist:
-            try:
-                self.sock.bind(('', port))
-            except:
-                continue
-            else:
-                self.myport = port
-                return True
+    def _new_tag(self):
+        if self._current_tag >= 999:
+            self._current_tag = 0
+            newtag = "TOOO"
         else:
-            return False;
+            self._current_tag += 1
+            newtag = "T{:03d}".format(self._current_tag)
+        return newtag
 
-    def disconnectSocket(self):
-        self.sock.close()
+    def _do_delay(self):
+        if self._banned > 0:
+            delay = max(pow(2*3600, self._banned), 48*3600)
+            adbb._log.info("Banned, sleeping for {} hours".format(delay/3600))
+            sleep(delay)
+            adbb._log.info("Slept well, let's see if we're still banned...")
+            self._reauthenticate()
+            return
+        age = time() - self._last_packet
+        if age > 120:
+            self._counter = 0
+            delay = 0
+        elif self._counter < 5:
+            delay = 2
+        else:
+            delay = 6
+        delay = delay-age
+        if delay > 0:
+            adbb._log.debug("Delaying request with {} seconds".format(delay))
+            sleep(delay)
+
+    def run(self):
+        # can't figure out a better way than to do a busy-wait here :/
+        while True:
+            while len(self._queue) < 1:
+                sleep(0.2)
+            command = self._queue.pop()
+            adbb._log.debug("sending command {} with tag {}".format(
+                    command.command, command.tag))
+            if command.command != 'AUTH':
+                if not self._authed.is_set():
+                    self._reauthenticate()
+                self._authed.wait()
+            self._send_command(command)
+            if command.command == 'LOGOUT':
+                break
+
+    def _send_command(self, command):
+        self._do_delay()
+        if not self._session and command.command not in ('AUTH', 'PING', 'ENCRYPT'):
+            raise AniDBMustAuthError("You must be authed to execute command {}".format(command.command))
+        command.authorize(self._session)
+        self._counter += 1
+        self._last_packet = time()
+        command.started = time()
+        data = command.raw_data().encode('utf-8')
+        
+        if command.command == 'AUTH':
+            adbb._log.debug("NetIO > AUTH data is not logged!")
+        else:
+            adbb._log.debug("NetIO > %s" % repr(data))
+
+        self._listener.sock.sendto(data, self._server)
+
+
+    def request(self, command, callback, prio=False):
+        command.started = None
+        command.callback = callback
+        command.tag = self._new_tag()
+        self._listener.cmd_queue[command.tag] = command
+        adbb._log.debug("Queued command {} with tag {}".format(
+                command.command, command.tag))
+        # special case, AUTH command should not be queued but sent asap.
+        if command.command == 'AUTH':
+            self._send_command(command)
+            return
+        if prio:
+            self._queue.append(command)
+        else:
+            self._queue.appendleft(command)
+
+    def set_session(self, session):
+        self._session = session
+
+    def reauthenticate(self):
+        self._authed.clear()
+        self._session = None
+        self._reauthenticate()
 
     def stop (self):
         if self._authed.isSet():
-            self.log.debug("Logging out from AniDB")
+            adbb._log.debug("Logging out from AniDB")
             req = adbb.commands.LogoutCommand()
             self.request(req, self._logout_handler)
             self._stop.wait(self.timeout)
-        if not self._stop.isSet():
-            self._stop.set()
-        self.log.debug("Closing listening socket")
-        self._quitting = True
-        self.disconnectSocket()
 
-    def stopped (self):
-        return self._stop.isSet()
+    def set_banned(self, reason=None):
+        adbb._log.error("Oh no! I'm banned: {}".\
+                format(reason))
+        self.banned += 1
+        self._authed.clear()
+        self._session = 0
+        self._reauthenticate()
 
-    def print_log(self, data):
-        print(data)
 
-    def print_log_dummy(self, data):
-        pass
+class AniDBListener(threading.Thread):
+    def __init__(
+            self, 
+            sender,
+            myport=9876, 
+            timeout=20):
+        super(AniDBListener, self).__init__()
+
+        self.timeout = timeout
+        self.sock = self._connect_socket(myport, self.timeout)
+        self._sender = sender
+
+        self.cmd_queue = {}
+
+        self.daemon = True
+        self.start()
+
+    def _connect_socket(self, myport, timeout):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.settimeout(timeout)
+        sock.bind(('', myport))
+        return sock
+
+    def _disconnect_socket(self):
+        self.sock.close()
+        self.sock = None
+
+    def stop (self):
+        adbb._log.debug("Closing listening socket")
+        self._disconnect_socket()
 
     def run(self):
-        while not self._quitting:
+        while self.sock:
             self.sock.settimeout(self.timeout)
             try:
                 data = self.sock.recv(8192)
             except socket.timeout:
                 self._handle_timeouts()
                 continue
-            self.log.debug("NetIO < %s" % repr(data))
+            adbb._log.debug("NetIO < %s" % repr(data))
             for i in range(2):
                 tmp = data
                 resp = None
                 if tmp[:2] == '\x00\x00':
                     tmp = zlib.decompressobj().decompress(tmp[2:])
-                    self.log.debug("UnZip | %s" % repr(tmp))
-                if self.crypt:
-                    tmp = self.crypt.decrypt(tmp)
+                    adbb._log.debug("UnZip | %s" % repr(tmp))
                 resp = ResponseResolver(tmp)
             if not resp:
                 raise AniDBPacketCorruptedError("Either decrypting, decompressing or parsing the packet failed")
-            cmd = self._cmd_dequeue(resp)
+            cmd = self.cmd_queue.pop(resp.restag)
             resp = resp.resolve(cmd)
             resp.parse()
             if resp.rescode in ('200', '201'):
-                self.session = resp.attrs['sesskey']
+                self._sender.set_session(resp.attrs['sesskey'])
             elif resp.rescode in ('209',):
-                self.log.error("sorry encryption is not supported")
+                adbb._log.error("sorry encryption is not supported")
                 raise
-                #self.crypt=AES.new(hashlib.md5(
-                #    u'{}{}'.format(resp.req.apipassword,resp.attrs['salt']).\
-                #        encode('utf-8')).digest(),
-                #        AES.MODE_ECB)
             elif resp.rescode in ('501', '506', '403'):
-                self._authed.clear()
-                self._reauthenticate()
-                self.tags.remove(resp.restag)
-                self.request(cmd, cmd.callback)
+                self._sender.reauthenticate()
+                self._sender.request(cmd, cmd.callback, prio=True)
                 continue
             elif resp.rescode in ('203', '500', '503'):
-                self.session = None
-                self.crypt = None
+                self.stop()
             elif resp.rescode in ('504', '555'):
                 try:
                     reason = resp.datalines[0]
                 except IndexError:
                     reason = resp.resstr
-                self.log.error("Oh no! AniDB says I'm banned: {}".\
-                        format(reason))
-                self.banned += 1
-                self._authed.clear()
-                self._reauthenticate()
-                self.tags.remove(resp.restag)
-                self.request(cmd, cmd.callback)
+                self._sender.set_banned(reason=reason)
+                self._sender.request(cmd, cmd.callback, prio=True)
+                continue
 
             resp.handle()
-            if not cmd:
-                self._resp_queue(resp)
-            else:
-                self.tags.remove(resp.restag)
 
     def _handle_timeouts(self):
         willpop = []
         for tag, cmd in self.cmd_queue.items():
             if not tag:
                 continue
-            if time() - cmd.started > self.timeout:
-                self.tags.remove(cmd.tag)
-                willpop.append(cmd.tag)
+            if cmd.started:
+                if time() - cmd.started > self.timeout:
+                    willpop.append(cmd.tag)
 
         for tag in willpop:
             if isinstance(cmd, adbb.commands.AuthCommand):
-                self._reauthenticate()
+                self._sender.reauthenticate()
             cmd = self.cmd_queue.pop(tag)
             cmd.handle_timeout(self)
-
-    def _resp_queue(self, response):
-        if response.restag:
-            self.resp_tagged_queue[response.restag] = response
-        else:
-            self.resp_untagged_queue.append(response)
-
-    def getresponse(self, command):
-        if command:
-            resp = self.resp_tagged_queue.pop(command.tag)
-        else:
-            resp = self.resp_untagged_queue.pop()
-        self.tags.remove(resp.restag)
-        return resp
-
-    def _cmd_queue(self, command):
-        self.tags.append(command.tag)
-        self.cmd_queue[command.tag] = command
-
-    def _cmd_dequeue(self, resp):
-        if not resp.restag:
-            return None
-        else:
-            return self.cmd_queue.pop(resp.restag)
-
-    def _delay(self):
-        age = time() - self.lastpacket
-        if age > 120:
-            self.counter = 0
-            self.delay = 0
-        elif self.counter < 5:
-            self.delay = 2
-        else:
-            self.delay = 6
-
-        return (self.delay < 2.1 and 2.1 or self.delay)
-
-    def _do_delay(self):
-        if self.banned > 0:
-            delay = max(pow(2*3600, self.banned), 48*3600)
-            self.log.info("Banned, sleeping for {} hours".format(delay/3600))
-            sleep(delay)
-            self.log.info("Slept well, let's see if we're still banned...")
-            return
-        age = time() - self.lastpacket
-        delay = self._delay()
-        if age <= delay:
-            sleep(delay - age)
-
-    def _send(self, command):
-        if command.command != 'AUTH':
-            if not self._authed.is_set():
-                self._reauthenticate()
-            self._authed.wait()
-        self._do_delay()
-        if not self.session and command.command not in ('AUTH', 'PING', 'ENCRYPT'):
-            raise AniDBMustAuthError("You must be authed to execute command {}".format(command.command))
-        command.authorize(self.session)
-        self.counter += 1
-        self.lastpacket = time()
-        command.started = time()
-        data = command.raw_data().encode('utf-8')
-        
-        if command.command == 'AUTH' and not self.logPrivate:
-            self.log.debug("NetIO > sensitive data is not logged!")
-        else:
-            self.log.debug("NetIO > %s" % repr(data))
-
-        if self.crypt:
-            data = self.crypt.encrypt(data)
-
-        self.sock.sendto(data, self.target)
-
-    def new_tag(self):
-        if self.current_tag == 100:
-            self.current_tag = 0
-            newtag = "TOOO"
-        else:
-            newtag = "T{:03d}".format(self.current_tag+1)
-            self.current_tag += 1
-        return newtag
-
-    def request(self, command, callback):
-        command.started = time()
-        command.callback = callback
-        command.tag = self.new_tag()
-        self._cmd_queue(command)
-        self._send(command)

@@ -61,9 +61,9 @@ class Command:
         return self.raw
 
     def handle_timeout(self, link):
-        if retries > 0:
-            retries -= 1
-            link.request(self, self.callback)
+        if self.retries > 0:
+            self.retries -= 1
+            link.request(self, self.callback, prio=True)
 
 
         
