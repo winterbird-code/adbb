@@ -16,6 +16,7 @@
 # along with adbb.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import with_statement
+import datetime
 import difflib
 import functools
 import re
@@ -60,6 +61,10 @@ def get_file_hash(filePath):
         else: return md4_hash(functools.reduce(lambda a,d: a + d, hashes)).hexdigest()
         
         
-def get_file_size(path):
-    size = os.path.getsize(path)
-    return size
+def get_file_stats(path):
+    """Return (mtime, size). size is in bytes, mtime is a datetime object."""
+    stat = os.stat(path)
+
+    size = stat.st_size
+    mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
+    return (mtime, size)

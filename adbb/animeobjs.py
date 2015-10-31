@@ -320,6 +320,7 @@ class File(AniDBObj):
     _path = None
     _size = None
     _ed2khash = None
+    _mtime = None
 
     @property
     def anime(self):
@@ -373,6 +374,10 @@ class File(AniDBObj):
         return self.db_data.size
 
     @property
+    def mtime(self):
+        return self._mtime
+
+    @property
     def ed2khash(self):
         if self._ed2khash:
             return self._ed2khash
@@ -393,7 +398,7 @@ class File(AniDBObj):
 
         if path:
             self._path = path
-            self._size = adbb.fileinfo.get_file_size(self._path)
+            self._mtime, self._size = adbb.fileinfo.get_file_stats(self._path)
         if fid:
             self._fid = int(fid)
         if anime:

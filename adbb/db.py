@@ -169,6 +169,7 @@ class FileTable(Base):
     path = Column(Unicode(512), nullable=True)
     size = Column(BigInteger, nullable=True)
     ed2khash = Column(String(64), nullable=True)
+    mtime = Column(DateTime(timezone=False), nullable=True)
     aid = Column(BigInteger, nullable=False, index=True)
     gid = Column(BigInteger, nullable=True)
     eid = Column(BigInteger, nullable=False, index=True)
