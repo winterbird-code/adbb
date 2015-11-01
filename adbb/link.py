@@ -49,6 +49,7 @@ class AniDBLink(threading.Thread):
         self._current_tag = 0
         self._listener = AniDBListener(self, myport=myport,timeout=timeout)
 
+        self.timeout = timeout
         self._stop = threading.Event()
         self._authed = threading.Event()
         self._authenticating = threading.Event()
