@@ -16,7 +16,7 @@ days (using mtime to calculate age) and then is automatically updated. You can o
 simply removing the cached file :)
 
 ## Requirements
-* python 3
+* recent python (both version 2 and 3 should work)
 * sqlalchemy
 * sqlalchemy-compatible database:
   * mysql is tested

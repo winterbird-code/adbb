@@ -18,12 +18,20 @@
 import datetime
 import difflib
 import gzip
-import urllib
-import urllib.error
-import urllib.request
 import os
+import sys
 import time
 import xml.etree.ElementTree as etree
+
+if sys.version_info[0] < 3:
+    import urllib as local_urllib
+    urllib = local_urllib
+    urllib.error = local_urllib
+    urllib.request = local_urllib
+else:
+    import urllib
+    import urllib.error
+    import urllib.request
 
 import adbb
 import adbb.animeobjs
@@ -49,7 +57,7 @@ def update_animetitles(only_if_needed=False):
     stat = os.stat(_animetitles_file)
     if os.path.isfile(_animetitles_file):
         if only_if_needed and stat.st_mtime > (time.time()-604800): # update after one week
-            if not xml:
+            if xml is None:
                 xml = _read_anidb_xml()
             return
 

@@ -30,7 +30,7 @@ from adbb.db import *
 from adbb.commands import *
 from adbb.errors import *
 
-class AniDBObj:
+class AniDBObj(object):
 
     def __init__(self):
         self._db = adbb._sql_db
@@ -85,7 +85,7 @@ class AniDBObj:
 class Anime(AniDBObj):
 
     def __init__(self, init):
-        super().__init__()
+        super(Anime, self).__init__()
         self.aid = None
         self.titles = None
         self.title = None
@@ -235,7 +235,7 @@ class Episode(AniDBObj):
         return self.db_data.epno
 
     def __init__(self, anime=None, epno=None, eid=None):
-        super().__init__()
+        super(Episode, self).__init__()
 
         if not ((anime and epno) or eid):
             raise AniDBError(
@@ -425,7 +425,7 @@ class File(AniDBObj):
         return self._ed2khash
 
     def __init__(self, path=None, fid=None, anime=None, episode=None):
-        super().__init__()
+        super(File, self).__init__()
         self._file_updated = threading.Event()
         self._mylist_updated = threading.Event()
         if not path and not fid and not (anime and episode):
