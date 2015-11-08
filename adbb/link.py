@@ -178,6 +178,8 @@ class AniDBLink(threading.Thread):
             req = adbb.commands.LogoutCommand()
             self.request(req, self._logout_handler)
             self._stop.wait(self.timeout)
+        else:
+            self._listener.stop()
 
     def set_banned(self, reason=None):
         adbb._log.error("Oh no! I'm banned: {}".\
