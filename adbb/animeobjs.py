@@ -386,7 +386,9 @@ class File(AniDBObj):
         if self._size:
             return self._size
         if self.path:
-            self._mtime, self._size = adbb.fileinfo.get_file_stats(self.path)
+            self._mtime, self._size = adbb.fileinfo.get_file_stats(
+                    self.path,
+                    self.nfs_obj)
         elif self.db_data and self.db_data.size:
             self._size = self.db_data.size
         return self._size
@@ -396,7 +398,9 @@ class File(AniDBObj):
         if self._mtime:
             return self._mtime
         if self.path:
-            self._mtime, self._size = adbb.fileinfo.get_file_stats(self.path)
+            self._mtime, self._size = adbb.fileinfo.get_file_stats(
+                    self.path,
+                    self.nfs_obj)
         elif self.db_data and self.db_data.mtime:
             self._mtime = self.db_data.mtime
         return self._mtime
@@ -410,12 +414,16 @@ class File(AniDBObj):
                     self.db_data.mtime and \
                     self.db_data.size and \
                     self.db_data.ed2khash:
-                mtime, size = adbb.fileinfo.get_file_stats(self.path)
+                mtime, size = adbb.fileinfo.get_file_stats(
+                        self.path,
+                        self.nfs_obj)
                 if mtime == self.db_data.mtime and size == self.db_data.size:
                     self._ed2khash = self.db_data.ed2khash
 
             if not self._ed2khash:
-                self._ed2khash = adbb.fileinfo.get_file_hash(self._path)
+                self._ed2khash = adbb.fileinfo.get_file_hash(
+                        self._path,
+                        self.nfs_obj)
             return self._ed2khash
 
         if not self.db_data and not self.db_data.ed2khash:
@@ -424,7 +432,13 @@ class File(AniDBObj):
             self._ed2khash = self.db_data.ed2khash
         return self._ed2khash
 
-    def __init__(self, path=None, fid=None, anime=None, episode=None):
+    def __init__(
+            self, 
+            path=None, 
+            fid=None, 
+            anime=None, 
+            episode=None,
+            nfs_obj=None):
         super(File, self).__init__()
         self._file_updated = threading.Event()
         self._mylist_updated = threading.Event()
@@ -432,9 +446,12 @@ class File(AniDBObj):
             raise AniDBError("File must be created with either filname, fid "\
                     "or anime and episode.")
 
+        self.nfs_obj = nfs_obj
         if path:
             self._path = path
-            self._mtime, self._size = adbb.fileinfo.get_file_stats(self._path)
+            self._mtime, self._size = adbb.fileinfo.get_file_stats(
+                    self._path,
+                    self.nfs_obj)
         if fid:
             self._fid = int(fid)
         if anime:

@@ -38,3 +38,6 @@ class AniDBBannedError(AniDBError):
 
 class AniDBFileError(AniDBError):
     pass
+
+class AniDBPathError(AniDBError):
+    pass

@@ -19,4 +19,7 @@ setup(
         url='https://github.com/winterbird-code/adbb',
         platforms=['any'],
         license= "GPLv3",
-        packages=['adbb'])
+        packages=['adbb'],
+        package_data = {
+            'adbb': ['*.txt']
+            })

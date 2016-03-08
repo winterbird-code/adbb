@@ -24,6 +24,13 @@ import hashlib
 import os
 import xml.etree.cElementTree as etree
 
+try:
+    import libnfs
+except ImportError:
+    libnfs = None
+
+import adbb.errors
+
 ep_nr_re = [
         re.compile(r'[Ss]([0-9]+)[ ._-]*e([0-9]+)()', re.I), #foo.s01.e01, foo.s01_e01, S01E02 foo, S01 - E02
         re.compile(r'[\._ -]()ep_?([0-9]+)()', re.I), # foo.ep01, foo.EP_01
@@ -34,12 +41,16 @@ ep_nr_re = [
 ]
 multiep_re = re.compile(r'[0-9]+')
 
-
 # http://www.radicand.org/blog/orz/2010/2/21/edonkey2000-hash-in-python/
-def get_file_hash(filePath):
+def get_file_hash(path, nfs_obj=None):
+    if path.startswith('nfs://'):
+        with NFSFile(path, 'rb', nfs_obj) as f:
+            return _calculate_ed2khash(f)
+    with open(path, 'rb') as f:
+        return _calculate_ed2khash(f)
+
+def _calculate_ed2khash(fileObj):
     """ Returns the ed2k hash of a given file."""
-    if not filePath:
-        return None
     md4 = hashlib.new('md4').copy
 
     def gen(f):
@@ -53,18 +64,63 @@ def get_file_hash(filePath):
         m.update(data)
         return m
 
-    with open(filePath, 'rb') as f:
-        a = gen(f)
-        hashes = [md4_hash(data).digest() for data in a]
-        if len(hashes) == 1:
-            return hashes[0].encode("hex")
-        else: return md4_hash(functools.reduce(lambda a,d: a + d, hashes)).hexdigest()
+    a = gen(fileObj)
+    hashes = [md4_hash(data).digest() for data in a]
+    if len(hashes) == 1:
+        return hashes[0].encode("hex")
+    else: return md4_hash(functools.reduce(lambda a,d: a + d, hashes)).hexdigest()
         
-        
-def get_file_stats(path):
+def get_file_stats(path, nfs_obj=None):
     """Return (mtime, size). size is in bytes, mtime is a datetime object."""
+    if path.startswith('nfs://'):
+        return _nfs_stats(path, nfs_obj)
+
     stat = os.stat(path)
 
     size = stat.st_size
     mtime = datetime.datetime.fromtimestamp(stat.st_mtime)
     return (mtime, size)
+
+class NFSFile(object):
+    def __init__(self, path, mode, nfs_obj=None):
+        if not libnfs:
+            raise adbb.errors.AniDBPathError(
+                    "libnfs python module not installed, can't use nfs paths")
+        self.mode = mode
+        self.handle = None
+        self.nfs_obj = nfs_obj
+
+        self.path = path
+
+        if self.nfs_obj:
+            if path.startswith(nfs_obj.url):
+                self.rel_path = os.path.join('/', path[len(nfs_obj.url):])
+            else:
+                self.rel_path = self.path
+    
+    def open(self):
+        if self.nfs_obj:
+            self.handle = nfs_obj.open(self.rel_path, self.mode)
+        else:
+            self.handle = libnfs.open(self.path, self.mode)
+        return self.handle
+
+    def close(self):
+        if self.handle:
+            self.handle.close()
+
+    def __enter__(self):
+        return self.open()
+
+    def __exit__(self, type, value, traceback):
+        self.close()
+        
+
+def _nfs_stats(path, nfs_obj=None):
+    stats = None
+    with NFSFile(path, 'r', nfs_obj) as f:
+        stats = f.fstat()
+    
+    mtime = stats['mtime']['sec']+stats['mtime']['nsec']/10**9
+    mtime = datetime.datetime.fromtimestamp(mtime)
+    return (mtime, stats['size'])
