@@ -233,7 +233,7 @@ class AniDBListener(threading.Thread):
             for i in range(2):
                 tmp = data
                 resp = None
-                if tmp[:2] == '\x00\x00':
+                if tmp[:2] == b'\x00\x00':
                     tmp = zlib.decompressobj().decompress(tmp[2:])
                     adbb._log.debug("UnZip | %s" % repr(tmp))
                 resp = ResponseResolver(tmp)
@@ -277,4 +277,4 @@ class AniDBListener(threading.Thread):
             if isinstance(cmd, adbb.commands.AuthCommand):
                 self._sender.reauthenticate()
             cmd = self.cmd_queue.pop(tag)
-            cmd.handle_timeout(self)
+            cmd.handle_timeout(self._sender)
