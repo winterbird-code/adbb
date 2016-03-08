@@ -114,14 +114,16 @@ class Anime(AniDBObj):
 
     def _db_data_callback(self, res):
         ainfo = res.datalines[0]
-        relations = None
+        relations = []
         new = None
 
-        if all([x in ainfo for x in ['related_aid_list', 'related_aid_type']]):
+        if all([x in ainfo and ainfo[x] for x in ['related_aid_list', 'related_aid_type']]):
             relations = zip(
                     ainfo['related_aid_list'].split("'"), 
                     ainfo['related_aid_type'].split("'"))
+        if 'related_aid_list' in ainfo:
             del ainfo['related_aid_list']
+        if 'related_aid_type' in ainfo:
             del ainfo['related_aid_type']
         relations = [
                 AnimeRelationTable(
