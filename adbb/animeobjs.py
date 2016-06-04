@@ -33,7 +33,6 @@ from adbb.errors import *
 class AniDBObj(object):
 
     def __init__(self):
-        self._db = adbb._sql_db
         self._anidb_link = adbb._anidb
         self._updated = threading.Event()
         self._updating = threading.Lock()
@@ -69,16 +68,22 @@ class AniDBObj(object):
     def _send_anidb_update_req(self):
         raise Exception("Not implemented")
 
-    def _db_commit(self):
+    def _close_db_session(self, session):
+        session.close()
+
+    def _get_db_session(self):
+        return adbb.get_session()
+
+    def _db_commit(self, session):
         try:
-            self._db.commit()
+            session.commit()
         except sqlalchemy.exc.DBAPIError as e:
             if self.db_data:
                 adbb._log.warning("Failed to update data {}: {}".format(
                     self.db_data, e))
             else:
                 adbb._log.warning("Failed to update db: {}".format(e))
-            self._db.rollback()
+            session.rollback()
 
 
 
@@ -96,23 +101,20 @@ class Anime(AniDBObj):
         elif isinstance(init, str):
             self.aid, self.titles, score, best_title = adbb.anames.get_titles(
                     name=init)[0]
-        elif isinstance(init, AnimeTable):
-            # init with AnimeTable
-            self.aid, self.titles, score, best_title = adbb.anames.get_titles(
-                    aid=init.aid)[0]
-            self.db_data = init
-        if not self.db_data:
-            self._get_db_data()
 
         self.title = [x.title for x in self.titles 
                 if x.lang == None and x.titletype == 'main'][0]
 
-    def _get_db_data(self):
-        res = self._db.query(AnimeTable).filter_by(aid=self.aid).all()
+    def _get_db_data(self, close=True):
+        sess = self._get_db_session()
+        res = sess.query(AnimeTable).filter_by(aid=self.aid).all()
         if len(res) > 0:
             self.db_data = res[0]
+        if close:
+            self._close_db_session(sess)
 
     def _db_data_callback(self, res):
+        sess = self._get_db_session()
         ainfo = res.datalines[0]
         relations = []
         new = None
@@ -137,6 +139,7 @@ class Anime(AniDBObj):
                 ainfo[attr] = adbb.mapper.anime_map_a_converters[attr](data)
 
         if self.db_data:
+            self.db_data = sess.merge(self.db_data)
             self.db_data.update(**ainfo)
             self.db_data.updated = datetime.datetime.now()
             new_relations = []
@@ -153,7 +156,7 @@ class Anime(AniDBObj):
                     new_relations.append(r)
             for r in self.db_data.relations:
                 if r not in new_relations:
-                    self._db.delete(r)
+                    sess.delete(r)
             self.db_data.relations = new_relations
         else:
             new = AnimeTable(**ainfo)
@@ -162,11 +165,12 @@ class Anime(AniDBObj):
             new.relations = relations
 
             # commit to sql database
-            self._db.add(new)
+            sess.add(new)
 
         if new:
             self.db_data = new
-        self._db_commit()
+        self._db_commit(sess)
+        self._close_db_session(sess)
         self._updated.set()
 
     def _send_anidb_update_req(self, prio=False):
@@ -258,17 +262,20 @@ class Episode(AniDBObj):
         self._get_db_data()
 
     def _get_db_data(self):
+        sess = self._get_db_session()
         if self._eid:
-            res = self._db.query(EpisodeTable).filter_by(eid=self._eid).all()
+            res = sess.query(EpisodeTable).filter_by(eid=self._eid).all()
         else:
-            res = self._db.query(EpisodeTable).filter_by(
+            res = sess.query(EpisodeTable).filter_by(
                     aid=self.anime.aid,
                     epno=self.episode_number).all()
         if len(res) > 0:
             self.db_data = res[0]
             adbb._log.debug("Found db_data for episode: {}".format(self.db_data))
+        self._close_db_session(sess)
 
     def _anidb_data_callback(self, res):
+        sess = self._get_db_session()
         if res.rescode == "340":
             adbb._log.warning("No such episode in anidb: {}".format(self))
             self._updated.set()
@@ -287,18 +294,19 @@ class Episode(AniDBObj):
             einfo[attr] = adbb.mapper.episode_map_converters[attr](data)
 
         if self.db_data:
+            self.db_data = sess.merge(self.db_data)
             self.db_data.update(**einfo)
             self.db_data.updated = datetime.datetime.now()
         else:
             new = EpisodeTable(**einfo)
             new.updated = datetime.datetime.now()
-            self._db.add(new)
+            sess.add(new)
 
         if new:
             self.db_data = new
 
-        self._db_commit()
-
+        self._db_commit(sess)
+        self._close_db_session(sess)
         self._updated.set()
 
     def _send_anidb_update_req(self, prio=False):
@@ -461,28 +469,31 @@ class File(AniDBObj):
                 self._anime = anime
             else:
                 self._anime = Anime(anime)
-            if isinstance(episode, Episode):
-                self._episode = episode
-            else:
-                self._episode = Episode(anime=self._anime, epno=episode)
+            if episode:
+                if isinstance(episode, Episode):
+                    self._episode = episode
+                else:
+                    self._episode = Episode(anime=self._anime, epno=episode)
         self._get_db_data()
 
     def _get_db_data(self):
+        sess = self._get_db_session()
         if self._fid:
-            res = self._db.query(FileTable).filter_by(fid=self._fid).all()
+            res = sess.query(FileTable).filter_by(fid=self._fid).all()
         else:
-            res = self._db.query(FileTable).filter_by(path=self._path).all()
+            res = sess.query(FileTable).filter_by(path=self._path).all()
             if res and res[0].size != self._size:
-                self._db.delete(res[0])
-                self._db_commit()
+                sess.delete(res[0])
+                self._db_commit(sess)
                 res = []
         if len(res) > 0:
             self.db_data = res[0]
             adbb._log.debug("Found db_data for file: {}".format(self.db_data))
-
+        self._close_db_session(sess)
 
 
     def _anidb_file_data_callback(self, res):
+        sess = self._get_db_session()
         new = None
         if res.rescode in ('340', '320'):
             finfo = {'is_generic': True}
@@ -533,19 +544,22 @@ class File(AniDBObj):
             finfo['eid'] = 0
 
         if self.db_data:
+            self.db_data = sess.merge(self.db_data)
             self.db_data.update(**finfo)
             self.db_data.updated = datetime.datetime.now()
         else:
             new = FileTable(**finfo)
             new.updated = datetime.datetime.now()
-            self._db.add(new)
+            sess.add(new)
 
         if new:
             self.db_data = new
-        self._db_commit()
+        self._db_commit(sess)
+        self._close_db_session(sess)
         self._file_updated.set()
 
     def _anidb_mylist_data_callback(self, res):
+        sess = self._get_db_session()
         new = None
         if res.rescode == '312':
             raise AniDBFileError("adbb currently does not support multiple mylist "\
@@ -567,17 +581,18 @@ class File(AniDBObj):
             finfo['ed2khash'] = self.ed2khash
 
         if self.db_data:
+            self.db_data = sess.merge(self.db_data)
             self.db_data.update(**finfo)
             self.db_data.updated = datetime.datetime.now()
         else:
             new = FileTable(**finfo)
             new.updated = datetime.datetime.now()
-            self._db.add(new)
+            sess.add(new)
 
         if new:
             self.db_data = new
-        self._db_commit()
-
+        self._db_commit(sess)
+        self._close_db_session(sess)
         self._mylist_updated.set()
             
 
@@ -613,8 +628,9 @@ class File(AniDBObj):
                 if self.db_data and self.db_data.eid:
                     self._episode = Episode(eid=self.db_data.eid)
                 if not (self._anime and self._episode):
-                    aid, self._multiep = self._guess_anime_ep_from_file()
+                    aid, self._multiep = self._guess_anime_ep_from_file(anime=self._anime)
                     if aid and self._multiep:
+                        sess = self._get_db_session()
                         if self.db_data and not self.db_data.aid:
                             self.db_data.aid = aid
                         if not self._anime:
@@ -623,7 +639,8 @@ class File(AniDBObj):
                             self._episode = Episode(anime=self._anime,epno=self._multiep[0])
                         if self.db_data and not self.db_data.eid:
                             self.db_data.eid = self._episode.eid
-                            self._db_commit()
+                            self._db_commit(sess)
+                            self._close_db_session(sess)
             adbb._log.debug("fetching mylist with aid and epno")
             req = MyListCommand(
                     aid=self.anime.aid,
@@ -736,15 +753,18 @@ class File(AniDBObj):
                     other=other)
             self._anidb_link.request(req, _mylistadd_callback, prio=True)
         wait.wait()
+        sess = self._get_db_session()
+        self.db_data = sess.merge(self.db_data)
         self.db_data.mylist_state=state
         self.db_data.mylist_viewed=watched
         if watched:
             self.db_data.mylist_viewdate = datetime.datetime.now()
         self.db_data.mylist_source=source
         self.db_data.mylist_other=other
-        self._db_commit()
+        self._db_commit(sess)
+        self._close_db_session(sess)
 
-    def _guess_anime_ep_from_file(self):
+    def _guess_anime_ep_from_file(self, anime=None):
         if not self.path:
             return (None, None)
         head, filename = os.path.split(self.path)
@@ -754,7 +774,8 @@ class File(AniDBObj):
         episodes = self._guess_epno_from_filename(filename)
         if not episodes:
             return (None, None)
-        anime = None
+        if anime:
+            return (anime, episodes)
 
         # first try to figure out anime by the directory name
         if parent_dir:

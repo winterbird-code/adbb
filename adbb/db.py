@@ -25,8 +25,8 @@ Base = declarative_base()
 def init_db(url):
     engine = create_engine(url, pool_recycle=300)
     Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    return Session()
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+    return Session
 
 class AnimeTable(Base):
     __tablename__ = 'anime'

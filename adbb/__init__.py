@@ -33,7 +33,7 @@ anidb_api_version = 3
 
 _log = None
 _anidb = None
-_sql_db = None
+Session = None
 
 
 def init(
@@ -58,17 +58,22 @@ def init(
         'adbb %(filename)s/%(funcName)s:%(lineno)d - %(message)s'))
     logger.addHandler(lh)
 
-    global _log, _anidb, _sql_db
+    global _log, _anidb, Session
     _log = logger
-    _sql_db = adbb.db.init_db(sql_db_url)
+    Session = adbb.db.init_db(sql_db_url)
     _anidb = adbb.link.AniDBLink(
             anidb_user, 
             anidb_pwd, 
             myport=outgoing_udp_port)
 
 
+def get_session():
+    return Session()
+
+def close_session(session):
+    session.close()
+
 def close():
-    global _anidb, _sql_db
-    _sql_db.close()
+    global _anidb
     _anidb.stop()
 
