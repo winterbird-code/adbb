@@ -127,6 +127,8 @@ anime_relation_map = {
         "42": "character",
         "51": "side story",
         "52": "parent story",
+        "61": "summary",
+        "62": "full story",
         "100": "other"
         }
 
