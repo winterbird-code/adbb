@@ -17,6 +17,7 @@
 
 import datetime
 import os
+import random
 import re
 import threading
 
@@ -56,12 +57,40 @@ class AniDBObj(object):
             return
         self._fetch_anidb_data(block=block)
 
-    def update_if_old(self, age=datetime.timedelta(days=7), block=False):
+    def _extra_refresh_probability(self):
+        return 0
+
+    def update_if_old(self, block=False):
         if not self.db_data:
             self.update(block=True)
         else:
-            old = datetime.datetime.now()-age
-            if self.db_data.updated <= old:
+            age = datetime.datetime.now()-self.db_data.updated
+            ref = datetime.timedelta()
+
+            # probability is in percent
+            # start with any extra refresh probability-parameters this class
+            # implements. Default is 0, meaning it will never request the same
+            # data twice the first week, no matter how many times you request
+            # the data.
+            # 
+            # add 5 % probability for each of the first 4 weeks, and then
+            # additional 10% for each month (or 30 days) after that.
+            class_probability = self._extra_refresh_probability()
+            refresh_probability = class_probability
+            while refresh_probability < 100:
+                age -= datetime.timedelta(weeks=1)
+                if age < ref:
+                    break
+                refresh_probability += 5
+            while refresh_probability < 100:
+                age -= datetime.timedelta(days=30)
+                if age < ref:
+                    break
+                refresh_probability += 10
+            refresh_probability = min(100, refresh_probability)
+            adbb._log.debug("Probability of updating {}: {}% ({}% from class rules)".format(
+                    self, refresh_probability, class_probability))
+            if random.randrange(100) < refresh_probability:
                 self.update(block=block)
 
 
@@ -105,6 +134,24 @@ class Anime(AniDBObj):
         self.title = [x.title for x in self.titles 
                 if x.lang == None and x.titletype == 'main'][0]
         self._get_db_data()
+
+    def _extra_refresh_probability(self):
+        now = datetime.datetime.now()
+        ref = datetime.timedelta()
+        # never update twice the same day...
+        if self.db_data.updated+datetime.timedelta(days=1) > now:
+            return 0
+        # ... but the shorter time there is between when anidb updated this
+        # anime and we fetched our data, the more likely is it that it has
+        # changed again. So we start at 60%, and removes 20% for each week
+        probability = 60
+        data_age = self.db_data.updated-self.db_data.anidb_updated
+        while probability > 0:
+            data_age -= datetime.timedelta(weeks=1)
+            if data_age < ref:
+                break
+            probability -= 20
+        return max(probability, 0)
 
     def _get_db_data(self, close=True):
         sess = self._get_db_session()
