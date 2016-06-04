@@ -104,6 +104,7 @@ class Anime(AniDBObj):
 
         self.title = [x.title for x in self.titles 
                 if x.lang == None and x.titletype == 'main'][0]
+        self._get_db_data()
 
     def _get_db_data(self, close=True):
         sess = self._get_db_session()
