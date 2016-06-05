@@ -668,6 +668,10 @@ class File(AniDBObj):
                     "entries for a single episode")
         elif res.rescode == '321':
             finfo = {'is_generic': True}
+            if self._anime:
+                finfo['aid'] = self._anime.aid
+            if self._episode:
+                finfo['eid'] = self._episode.eid
         else:
             finfo = res.datalines[0]
             if 'date' in finfo:
