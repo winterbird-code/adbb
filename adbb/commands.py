@@ -213,13 +213,27 @@ class MyListCommand(Command):
 
 
 class MyListAddCommand(Command):
-    def __init__(self,lid=None,fid=None,size=None,ed2k=None,aid=None,aname=None,gid=None,gname=None,epno=None,edit=None,state=None,viewed=None,source=None,storage=None,other=None,generic=None):
-        if aid and generic and epno:
-            parameters={'aid':aid,'generic':generic,'epno':epno,'edit':edit,'state':state,'viewed':viewed,'source':source,'storage':storage,'other':other}
-            Command.__init__(self,'MYLISTADD',**parameters)
-            return
+    def __init__(
+            self,
+            lid=None,
+            fid=None,
+            size=None,
+            ed2k=None,
+            aid=None,
+            aname=None,
+            gid=None,
+            gname=None,
+            epno=None,
+            edit=None,
+            state=None,
+            viewed=None,
+            viewdate=None,
+            source=None,
+            storage=None,
+            other=None,
+            generic=None):
 
-        if not (lid or fid or (size and ed2k) or ((aid or aname) and (gid or gname))) \
+        if not (lid or fid or (size and ed2k) or ((aid or aname) and (gid or gname)) or (aid and generic and epno)) \
                 or (lid and (fid or size or ed2k or aid or aname or gid or gname or epno)) \
                 or (fid and (lid or size or ed2k or aid or aname or gid or gname or epno)) \
                 or ((size and ed2k) and (lid or fid or aid or aname or gid or gname or epno)) \
@@ -228,7 +242,24 @@ class MyListAddCommand(Command):
                 or (gid and gname) \
                 or (lid and not edit):
             raise AniDBIncorrectParameterError("You must provide <lid XOR fid XOR size+ed2k XOR a(id|name)+g(id|name)+epno> for MYLISTADD command")
-        parameters={'lid':lid,'fid':fid,'size':size,'ed2k':ed2k,'aid':aid,'aname':aname,'gid':gid,'gname':gname,'generic':generic,'epno':epno,'edit':edit,'state':state,'viewed':viewed,'source':source,'storage':storage,'other':other}
+        parameters={
+                'lid':lid,
+                'fid':fid,
+                'size':size,
+                'ed2k':ed2k,
+                'aid':aid,
+                'aname':aname,
+                'gid':gid,
+                'gname':gname,
+                'generic':generic,
+                'epno':epno,
+                'edit':edit,
+                'state':state,
+                'viewed':viewed,
+                'viewdate':viewdate,
+                'source':source,
+                'storage':storage,
+                'other':other}
         Command.__init__(self,'MYLISTADD',**parameters)
 
 class MyListDelCommand(Command):

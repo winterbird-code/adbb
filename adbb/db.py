@@ -210,7 +210,8 @@ class FileTable(Base):
     mylist_viewdate = Column(DateTime(timezone=False), nullable=True)
     mylist_storage = Column(String(128), nullable=True)
     mylist_source = Column(String(128), nullable=True)
-    mylist_other = Column(String(128), nullable=true)
+    mylist_other = Column(String(128), nullable=True)
+    lid = Column(BigInteger, nullable=True)
 
     updated = Column(DateTime(timezone=True), nullable=True)
 

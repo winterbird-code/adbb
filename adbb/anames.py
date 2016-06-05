@@ -137,7 +137,7 @@ def get_lang_code(short):
     return None
     
 
-def get_titles(name=None, aid=None, max_results=10, score_for_match=0.8):
+def get_titles(name=None, aid=None, max_results=10, score_for_match=0.6):
     res = []
     
     update_animetitles(only_if_needed=True)

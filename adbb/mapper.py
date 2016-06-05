@@ -106,6 +106,7 @@ episode_map_converters = {
         }
 
 mylist_map_converters = {
+        'lid': int,
         'fid': int,
         'eid': int,
         'aid': int,
