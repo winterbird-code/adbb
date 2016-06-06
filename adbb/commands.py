@@ -64,6 +64,8 @@ class Command:
         if self.retries > 0:
             self.retries -= 1
             link.request(self, self.callback, prio=True)
+        else:
+            raise AniDBCommandTimeoutError("Command {} timed out".format(self))
 
 
         
