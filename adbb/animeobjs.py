@@ -242,6 +242,26 @@ class Anime(AniDBObj):
         return [(x.relation_type, Anime(x.related_aid)) \
                     for x in self.db_data.relations]
 
+
+    def __eq__(self, other):
+        if not isinstance(other, Anime):
+            return NotImplemented
+        return self.aid == other.aid
+
+    def __len__(self):
+        return self.highest_episode_number
+
+    def __length_hint__(self):
+        if self.nr_of_episodes:
+            return self.nr_of_episodes
+        else:
+            return self.highest_episode_number
+
+    def __contains__(self, other):
+        if not isinstance(other, Episode):
+            return NotImplemented
+        return other.aid == self.aid
+
     def __repr__(self):
         return "Anime(title='{}', aid={})".format(
                 self.title,
@@ -377,6 +397,11 @@ class Episode(AniDBObj):
         self._updated.wait()
         self._updating.release()
         
+
+    def __eq__(self, other):
+        if not isinstance(other, Episode):
+            return NotImplemented
+        return self.eid == other.eid
 
     def __repr__(self):
         return "Episode(anime={}, episode_number='{}', eid={})".format(
@@ -1001,3 +1026,21 @@ class File(AniDBObj):
             adbb._log.debug("file '{}': could not figure out episode number(s)"\
                     .format(filename))
         return ret
+
+
+    def __eq__(self, other):
+        if not isinstance(other, File):
+            return NotImplemented
+        if self.fid and self.fid == other.fid:
+            return True
+        if self.is_generic and other.is_generic:
+            return self.episode == other.episode
+
+    def __len__(self):
+        return len(self.multiep)
+
+    def __contains__(self, other):
+        if not isinstance(other, Episode):
+            return NotImplemented
+        return other.episode_number in self.multiep
+
