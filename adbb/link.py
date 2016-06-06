@@ -35,6 +35,7 @@ class AniDBLink(threading.Thread):
             host='api.anidb.info',
             port=9000,
             myport=9876,
+            nat_ping_interval=600,
             timeout=20):
         super(AniDBLink, self).__init__()
         self._user = user
@@ -47,6 +48,9 @@ class AniDBLink(threading.Thread):
         self._banned = 0
 
         self._current_tag = 0
+        self._myport = myport
+        self._nat_ping_interval = nat_ping_interval
+        self._do_ping = False
         self._listener = AniDBListener(self, myport=myport,timeout=timeout)
 
         self.timeout = timeout
@@ -79,6 +83,13 @@ class AniDBLink(threading.Thread):
 
     def _auth_handler(self, resp):
         self._banned = 0
+        addr = resp.attrs['address']
+        ip, port = addr.split(':')
+        port = int(port)
+        if port != self._myport:
+            self._do_ping = True
+            adbb._log.info("NAT detected: will send PING every {} seconds".format(
+                    self._nat_ping_interval))
         with self._auth_lock:
             self._authed.set()
             self._authenticating.clear()
@@ -102,7 +113,7 @@ class AniDBLink(threading.Thread):
             self._reauthenticate()
             return
         age = time() - self._last_packet
-        if age > 120:
+        if age > 600:
             self._counter = 0
             delay = 0
         elif self._counter < 5:
@@ -119,6 +130,11 @@ class AniDBLink(threading.Thread):
         while True:
             while len(self._queue) < 1:
                 sleep(0.2)
+                if self._authed.is_set() \
+                        and self._do_ping \
+                        and time() - self._last_packet > self._nat_ping_interval:
+                    command = adbb.commands.PingCommand()
+                    self.request(command)
             command = self._queue.pop()
             adbb._log.debug("sending command {} with tag {}".format(
                     command.command, command.tag))

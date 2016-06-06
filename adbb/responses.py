@@ -126,8 +126,7 @@ class LoginAcceptedResponse(Response):
         self.coderep=()
 
         nat=cmd.parameters['nat']
-        nat=int(nat==None and nat or '0')
-        if nat:
+        if nat in ('1', 1):
             self.codehead=('sesskey','address')
         else:
             self.codehead=('sesskey',)
