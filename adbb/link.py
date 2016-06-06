@@ -108,7 +108,7 @@ class AniDBLink(threading.Thread):
         elif self._counter < 5:
             delay = 2
         else:
-            delay = 6
+            delay = 4
         delay = delay-age
         if delay > 0:
             adbb._log.debug("Delaying request with {} seconds".format(delay))
