@@ -585,9 +585,10 @@ class File(AniDBObj):
                 self._db_commit(sess)
                 res = []
         else:
-            # When created with just Anime and Episode, we want file
-            # information from mylist first
-            return
+            res = sess.query(FileTable).filter_by(
+                    aid=self._anime.aid,
+                    eid=self._episode.eid,
+                    path=None)
         if len(res) > 0:
             self.db_data = res[0]
             adbb._log.debug("Found db_data for file: {}".format(self.db_data))
@@ -613,11 +614,6 @@ class File(AniDBObj):
             if 'state' in finfo:
                 state = int(finfo['state'])
                 del finfo['state']
-
-            remove = [x for x in finfo \
-                    if x.startswith('mylist_') and finfo[x] == '']
-            for attr in remove:
-                del finfo[attr]
 
             for attr, data in finfo.items():
                 finfo[attr] = adbb.mapper.file_map_f_converters[attr](data)
@@ -734,7 +730,7 @@ class File(AniDBObj):
         self._mylist_updated.set()
             
 
-    def _send_anidb_update_req(self, prio=False, req_mylist=True, req_file=True):
+    def _send_anidb_update_req(self, prio=False, req_mylist=False, req_file=True):
         adbb._log.debug("updating - fid: {}, size: {}, path: {}".format(
                 self._fid,
                 self._size,
@@ -762,7 +758,9 @@ class File(AniDBObj):
                 self._anidb_link.request(req, self._anidb_file_data_callback,
                         prio=prio)
                 self._file_updated.wait()
-        if req_mylist:
+        # We want to send a mylist request only if explicitly asked for, or if
+        # we didn't get a fid from the File request
+        if req_mylist or not self._fid:
             if self._fid:
                 adbb._log.debug("fetching mylist with fid")
                 req = MyListCommand(fid=self._fid)
@@ -950,7 +948,7 @@ class File(AniDBObj):
                 self._updating.acquire()
                 self._updating.release()
                 return
-            self._send_anidb_update_req(req_file=False)
+            self._send_anidb_update_req(req_file=False, req_mylist=True)
 
     def _guess_anime_ep_from_file(self, aid=None):
         if not self.path:

@@ -70,6 +70,7 @@ file_map_f_converters = {
         'fid': int,
         'aid': int,
         'eid': int,
+        'lid': int,
         'gid': int,
         'is_deprecated': lambda x: x=='1',
         'size': int,
@@ -142,12 +143,12 @@ anime_map_a = ['aid','unused','year','type','related_aid_list','related_aid_type
          'not_implemented','not_implemented','not_implemented','not_implemented','unused','unused','unused','unused',
          'special_count','credit_count','other_count','trailer_count','parody_count','unused','unused','unused']
 
-file_map_f = ['unused','aid','eid','gid','not_implemented','not_implemented','is_deprecated','state',
+file_map_f = ['unused','aid','eid','gid','lid','not_implemented','is_deprecated','state',
         'size','ed2khash','not_implemented','not_implemented','not_implemented','unused','unused','reserved',
         'not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','not_implemented',
         'not_implemented','not_implemented','length_in_seconds','description','aired_date','unused','unused','not_implemented',
-        #'mylist_state','mylist_filestate','mylist_viewed','mylist_viewdate','mylist_storage','mylist_source','mylist_other','unused']
-        'not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','unused']
+        'mylist_state','mylist_filestate','mylist_viewed','mylist_viewdate','mylist_storage','mylist_source','mylist_other','unused']
+        #'not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','not_implemented','unused']
 
 file_map_a = ['anime_total_episodes','highest_episode_number','year','type','related_aid_list','related_aid_type','category_list','reserved',
         'romaji_name','kanji_name','english_name','other_name','short_name_list','synonym_list','retired','retired',
