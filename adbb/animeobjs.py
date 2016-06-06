@@ -750,17 +750,12 @@ class File(AniDBObj):
                     if not (self._anime and self._episode):
                         aid, self._multiep = self._guess_anime_ep_from_file(aid=self._anime.aid)
                         if aid and self._multiep:
-                            sess = self._get_db_session()
                             if self.db_data and not self.db_data.aid:
                                 self.db_data.aid = aid
                             if not self._anime:
                                 self._anime = Anime(aid)
                             if not self._episode:
                                 self._episode = Episode(anime=self._anime,epno=self._multiep[0])
-                            if self.db_data and not self.db_data.eid:
-                                self.db_data.eid = self._episode.eid
-                                self._db_commit(sess)
-                                self._close_db_session(sess)
                 adbb._log.debug("fetching mylist with aid and epno")
                 req = MyListCommand(
                         aid=self._anime.aid,
