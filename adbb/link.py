@@ -32,7 +32,8 @@ class AniDBLink(threading.Thread):
     def __init__(self,
             user,
             pwd,
-            host='api.anidb.info',
+            host='localhost',
+            #host='api.anidb.info',
             port=9000,
             myport=9876,
             nat_ping_interval=600,
@@ -241,6 +242,7 @@ class AniDBListener(threading.Thread):
         while self.sock:
             self.sock.settimeout(self.timeout)
             try:
+                adbb._log.debug("Listening on socket with {}s timeout".format(self.sock.gettimeout()))
                 data = self.sock.recv(8192)
             except socket.timeout:
                 self._handle_timeouts()
@@ -255,7 +257,14 @@ class AniDBListener(threading.Thread):
                 resp = ResponseResolver(tmp)
             if not resp:
                 raise AniDBPacketCorruptedError("Either decrypting, decompressing or parsing the packet failed")
-            cmd = self.cmd_queue.pop(resp.restag)
+            if resp.restag:
+                cmd = self.cmd_queue.pop(resp.restag)
+            else:
+                # No responsetag... we're probably banned
+                adbb._log.critical("We've been banned from the anidb UDP API: {}".format(repr(data)))
+                reason = resp.resstr
+                self._sender.set_banned(reason=reason)
+                continue
             resp = resp.resolve(cmd)
             resp.parse()
             if resp.rescode in ('200', '201'):
@@ -269,25 +278,23 @@ class AniDBListener(threading.Thread):
                 continue
             elif resp.rescode in ('203', '500', '503'):
                 self.stop()
-            elif resp.rescode in ('504', '555'):
-                try:
-                    reason = resp.datalines[0]
-                except IndexError:
-                    reason = resp.resstr
-                self._sender.set_banned(reason=reason)
-                self._sender.request(cmd, cmd.callback, prio=True)
-                continue
 
-            resp.handle()
+            resp_thread = threading.Thread(target=resp.handle)
+            resp_thread.daemon = True
+            resp_thread.start()
 
     def _handle_timeouts(self):
         willpop = []
+        adbb._log.debug("Timeout; commands in queue: {}".format(self.cmd_queue))
         for tag, cmd in self.cmd_queue.items():
             if not tag:
                 continue
             if cmd.started:
+                adbb._log.debug("Command {} started at {} (now {}".format(
+                        tag, cmd.started, time()))
                 if time() - cmd.started > self.timeout:
-                    willpop.append(cmd.tag)
+                    adbb._log.warning("Command {} timed out".format(tag))
+                    willpop.append(tag)
 
         for tag in willpop:
             if isinstance(cmd, adbb.commands.AuthCommand):
