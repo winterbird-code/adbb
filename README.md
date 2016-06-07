@@ -7,8 +7,12 @@ As I tend to rip my own files and have no intention of spreading them to a wide 
 
 As the anidb UDP API enforces a very slow rate of requests, this implementation caches all information requested from
 anidb and uses the cache whenever possible. The cache is stored in mysql (or any other sqlalchemy-compatible
-database). For how long does it cache? For now the answer is: Always 7 days. In the future maybe it should cache 
-longer or shorter depending on the age of the anidb entry (old entries tend not to change as much as newer entries).
+database). For how long does it cache? It depends! Shortest caching period is one day, after that some not very 
+inteligent algorithm will add some probability score which is used to decide if the cache should be updated or not. 
+It's untuned and will probably be difficult to get right for all use cases... I'm listening to any ideas about how to 
+make this better :)
+
+Also, you can always force an update of the cache by using the objects update() method.
 
 The Anime title search is implemented using the animetitles.xml file hosted at anidb. It is automatically downloaded
 and stored localy (for now hardcoded to /var/tmp/adbb/animetitles.xml.gz). This animetitles file is also cached for 7 
@@ -133,25 +137,30 @@ The following attributes as returned from the AniDB API
 ```python
 File(path=None, fid=None, anime=None, episode=None)
 ```
-File object requires either path or fid, or anime and episode to be set. When setting anime and episode this file will
+File object requires either path, fid, or anime and episode to be set. When setting anime and episode this file will
 either be a generic file, or the file you have in your mylist for this anime and episode. fid is obviously the AniDB
-file ID. path is the fun one.
+file ID. Path is the fun one.
 
 When a path is specified the library will first check the size and ed2k-hash to the AniDB database. If the file exists
 there this will obviously represent that file. If the file *doesn't* exist in the AniDB databse the library will try
 to figure out which anime and episode this file represents. The episode number is guessed from the filename by using 
-some regex. The Anime title is guessed from the parent directory if there is a good-enough match in the animetitles-
-file, otherwise it's guessed from the filename. For details, check _guess_anime_ep_from_file() and
-_guess_epno_from_filename() in the File class in animeobjs.py, and get_titles() in anames.py.
+some regex. If no episode number is found, adbb will check if the Anime only has a single episode; and if that is the
+case it will assume that the file has episode number '1'. The Anime title is guessed from the parent directory if there 
+is a good-enough match in the animetitles- file, otherwise it's guessed from the filename. For details, check
+_guess_anime_ep_from_file() and _guess_epno_from_filename() in the File class in animeobjs.py, and get_titles() in 
+anames.py.
 
 
 #### Functions
 The File object has some functions for managing the file in mylist.
 
 ```python
-add_to_mylist(state='on hdd', watched=False, source=None, other=None)
+update_mylist(state=None, watched=None, source=None, other=None)
 remove_from_mylist()
 ```
+
+The update_mylist() function can be used both to add and to edit a file in mylist. state can be one of 'unknown', 
+'on hdd', 'on cd' or 'deleted'. watched can be either True, False or an datetime object describing when it was watched.
 
 #### Attributes
 * anime - Anime object for which anime this file contains
@@ -165,6 +174,7 @@ remove_from_mylist()
 * updated - datetime when information about this file was last fetched from AniDB
 
 The following attributes as returned from the AniDB API
+* lid
 * gid
 * is_deprecated
 * is_generic
@@ -186,7 +196,6 @@ The following attributes as returned from the AniDB API
 ## TODO:
 In no particular order:
 * add support for more anidb-commands (anime description would be nice...)
-* add more mylist features (set as watched should really be implemented...)
 * make cache invalidation smarter
 * add better/more error checking, right now it will probably crash at most errors it will encounter :)
 * make multiprocess/multithreading-safe
