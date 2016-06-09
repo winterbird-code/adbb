@@ -56,7 +56,8 @@ def _calculate_ed2khash(fileObj):
     def gen(f):
         while True:
             x = f.read(9728000)
-            if x: yield x
+            if x:
+                yield x
             else: return
 
     def md4_hash(data):
@@ -65,10 +66,15 @@ def _calculate_ed2khash(fileObj):
         return m
 
     a = gen(fileObj)
-    hashes = [md4_hash(data).digest() for data in a]
+    hashes = [md4_hash(data) for data in a]
     if len(hashes) == 1:
-        return hashes[0].encode("hex")
-    else: return md4_hash(functools.reduce(lambda a,d: a + d, hashes)).hexdigest()
+        return hashes[0].hexdigest()
+    else: 
+        # reduce goes from left to right, but will not run digest on the first
+        # entry, so we'll have to do that first.
+        hashes[0] = hashes[0].digest()
+        res = md4_hash(functools.reduce(lambda a,d: a + d.digest(), hashes)).hexdigest()
+        return res
         
 def get_file_stats(path, nfs_obj=None):
     """Return (mtime, size). size is in bytes, mtime is a datetime object."""
