@@ -119,10 +119,11 @@ class AniDBObj(object):
     def __getattr__(self, name):
         local_vars = vars(self)
         local_name = "_{}".format(name)
+        #adbb._log.debug("Requested attribute {} (in local_vars: {})".format(
+        #    name, local_name in local_vars))
         if local_name in local_vars and local_vars[local_name]:
             return local_vars[local_name]
         
-        adbb._log.debug("Requested non-local attribute {}".format(name))
         self._updating.acquire()
         self._updating.release()
         self.update_if_old()
@@ -146,6 +147,7 @@ class Anime(AniDBObj):
 
         self._title = [x.title for x in self.titles 
                 if x.lang == None and x.titletype == 'main'][0]
+        self.db_data = None
         self._get_db_data()
 
     def _extra_refresh_probability(self):
@@ -280,6 +282,15 @@ class Episode(AniDBObj):
     _anime = None
     _episode_number = None
 
+    @property
+    def eid(self):
+        eid = self.__getattr__('eid')
+        if eid:
+            return eid
+        elif self.db_data and not self.db_data.eid:
+            self.update(True)
+        return self.db_data.eid
+
     def __init__(self, anime=None, epno=None, eid=None):
         super(Episode, self).__init__()
 
@@ -289,16 +300,18 @@ class Episode(AniDBObj):
                     "or eid.")
         if eid:
             self._eid = eid
-        if anime and epno:
+        if anime:
             if isinstance(anime, Anime):
                 self._anime = anime
             else:
                 self._anime = Anime(anime)
+        if epno:
             try:
-                str(int(epno))
+                epno = str(int(epno))
             except ValueError:
                 pass
             self._episode_number = epno
+        self.db_data = None
         self._get_db_data()
 
     def _extra_refresh_probability(self):
@@ -320,6 +333,8 @@ class Episode(AniDBObj):
         if len(res) > 0:
             self.db_data = res[0]
             adbb._log.debug("Found db_data for episode: {}".format(self.db_data))
+            if self.db_data.epno:
+                self._episode_number = self.db_data.epno
         self._close_db_session(sess)
 
     def _anidb_data_callback(self, res):
@@ -371,7 +386,7 @@ class Episode(AniDBObj):
     def __eq__(self, other):
         if not isinstance(other, Episode):
             return NotImplemented
-        return self.eid == other.eid
+        return self.eid == other.eid or self.lid == other.lid
 
     def __repr__(self):
         return "Episode(anime={}, episode_number='{}', eid={})".format(
@@ -387,6 +402,7 @@ class File(AniDBObj):
     _size = None
     _ed2khash = None
     _mtime = None
+    _lid = None
 
     @property
     def anime(self):
@@ -399,10 +415,19 @@ class File(AniDBObj):
     def episode(self):
         if self._episode:
             return self._episode
-        if self._multiep and self._anime:
-            self._episode = Episode(anime=self._anime, epno=_multiep[0])
+        kwargs = {}
+        if self._multiep:
+            kwargs['epno'] = self._multiep[0]
+        if self._anime:
+            kwargs['anime'] = self._anime
+        if self.db_data and self.db_data.eid:
+            kwargs['eid'] = self.db_data.eid
+        if ('epno' in kwargs and 'anime' in kwargs) \
+                or 'eid' in kwargs:
+            adbb._log.debug("Creating episode with {}".format(kwargs))
+            self._episode = Episode(**kwargs)
         else:
-            self._episode = Episode(eid=self.eid)
+            self._episode = Episode(self.eid)
         return self._episode
 
     @property
@@ -446,7 +471,7 @@ class File(AniDBObj):
     def ed2khash(self):
         if self._ed2khash:
             return self._ed2khash
-        elif self.path:
+        elif self._path:
             if self.db_data and \
                     self.db_data.mtime and \
                     self.db_data.size and \
@@ -457,12 +482,16 @@ class File(AniDBObj):
                 if mtime == self.db_data.mtime and size == self.db_data.size:
                     self._ed2khash = self.db_data.ed2khash
 
-            if not self._ed2khash:
-                self._ed2khash = adbb.fileinfo.get_file_hash(
-                        self._path,
-                        self.nfs_obj)
+            if self._ed2khash:
+                return self._ed2khash
+
+            self._ed2khash = adbb.fileinfo.get_file_hash(
+                    self._path,
+                    self.nfs_obj)
+            adbb._log.debug("Calculated ed2khash: {}".format(self._ed2khash))
             return self._ed2khash
 
+        adbb._log.debug("Trying to fetch ed2khash from anidb")
         # wait for any update process to finish
         self._updating.acquire()
         self._updating.release()
@@ -476,15 +505,20 @@ class File(AniDBObj):
             self, 
             path=None, 
             fid=None, 
+            lid=None,
             anime=None, 
             episode=None,
-            nfs_obj=None):
+            nfs_obj=None,
+            force_single_episode_series=False):
         super(File, self).__init__()
+        self.force_single_episode_series = force_single_episode_series
         self._file_updated = threading.Event()
         self._mylist_updated = threading.Event()
-        if not path and not fid and not (anime and episode):
-            raise AniDBError("File must be created with either filname, fid "\
-                    "or anime and episode.")
+        adbb._log.debug("path: {}, fid: {}, anime: {}, episode: {}, lid: {}".format(
+                path, fid, anime, episode, lid))
+        if not path and not fid and not (anime and episode) and not lid:
+            raise AniDBError("File must be created with either filname, fid, "\
+                    "lid or anime and episode.")
 
         self.nfs_obj = nfs_obj
         if path:
@@ -495,30 +529,36 @@ class File(AniDBObj):
             adbb._log.debug("Created File {} - size: {}, mtime: {}".format(self._path, self._size, self._mtime))
         if fid:
             self._fid = int(fid)
+        if lid:
+            self._lid = int(lid)
         if anime:
             if isinstance(anime, Anime):
                 self._anime = anime
             else:
                 self._anime = Anime(anime)
-            if episode:
-                if isinstance(episode, Episode):
-                    self._episode = episode
-                else:
-                    self._episode = Episode(anime=self._anime, epno=episode)
+        if episode:
+            if isinstance(episode, Episode):
+                self._episode = episode
+            else:
+                self._episode = Episode(anime=self._anime, epno=episode)
+                self._multiep = [episode]
+        self.db_data = None
         self._get_db_data()
 
     def _extra_refresh_probability(self):
         probability = 0
-        # For files, add 10% probability if it is a generic file that is in
+        # For files, add 1% probability if it is a generic file that is in
         # mylist.
         if self.db_data.is_generic and self.db_data.mylist_state:
-            probability = 10
+            probability = 1
         return max(probability, 0)
 
     def _get_db_data(self):
         sess = self._get_db_session()
         if self._fid:
             res = sess.query(FileTable).filter_by(fid=self._fid).all()
+        elif self._lid:
+            res = sess.query(FileTable).filter_by(lid=self._lid).all()
         elif self._path:
             res = sess.query(FileTable).filter_by(path=self._path).all()
             if res and res[0].size != self._size:
@@ -557,7 +597,10 @@ class File(AniDBObj):
                 del finfo['state']
 
             for attr, data in finfo.items():
-                finfo[attr] = adbb.mapper.file_map_f_converters[attr](data)
+                if attr in adbb.mapper.file_map_f_converters:
+                    finfo[attr] = adbb.mapper.file_map_f_converters[attr](data)
+                else:
+                    finfo[attr] = data
 
             if state & 0x1:
                 finfo['crc_ok'] = True
@@ -591,6 +634,12 @@ class File(AniDBObj):
             finfo['eid'] = 0
         if 'fid' in finfo:
             self._fid = finfo['fid']
+        if 'lid' in finfo:
+            self._lid = finfo['lid']
+        if 'epno' in finfo:
+            if not self._multiep:
+                self._multiep = [finfo['epno']]
+            del finfo['epno']
 
         if update_mylist:
             finfo['mylist_state'] = self.db_data.mylist_state
@@ -656,9 +705,10 @@ class File(AniDBObj):
         sess = self._get_db_session()
         if self.db_data:
             # This is not our file if we are a generic, but got a gid or we
-            # have a fid which is not the same as the returned fid
+            # have a fid/lid which is not the same as the returned fid/lid
             if (self.path and self.db_data.is_generic and 'gid' in finfo and finfo['gid']) \
-                    or (self.db_data.fid and 'fid' in finfo and self.db_data.fid != finfo['fid']):
+                    or (self.db_data.fid and 'fid' in finfo and self.db_data.fid != finfo['fid']) \
+                    or (self.db_data.lid and 'lid' in finfo and self.db_data.lid != finfo['lid']):
                 finfo = {}
             adbb._log.debug("New mylist info: {}".format(finfo))
             self.db_data = sess.merge(self.db_data)
@@ -684,23 +734,23 @@ class File(AniDBObj):
         if req_file:
             if self._fid:
                 self._file_updated.clear()
+                adbb._log.debug("sending file request with fid")
                 req = FileCommand(
                         fid=self._fid,
                         fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
-                        amask=adbb.mapper.getFileBitsA([])
+                        amask=adbb.mapper.getFileBitsA(['epno'])
                         )
-                adbb._log.debug("sending file request with fid")
                 self._anidb_link.request(req, self._anidb_file_data_callback,
                         prio=prio)
                 self._file_updated.wait()
             elif self._size and self._path:
                 self._file_updated.clear()
+                adbb._log.debug("sending file request with size and hash")
                 req = FileCommand(
                         size=self._size, 
                         ed2k=self.ed2khash, 
                         fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
-                        amask=adbb.mapper.getFileBitsA([]))
-                adbb._log.debug("sending file request with size and hash")
+                        amask=adbb.mapper.getFileBitsA(['epno']))
                 self._anidb_link.request(req, self._anidb_file_data_callback,
                         prio=prio)
                 self._file_updated.wait()
@@ -710,6 +760,9 @@ class File(AniDBObj):
             if self._fid:
                 adbb._log.debug("fetching mylist with fid")
                 req = MyListCommand(fid=self._fid)
+            elif self._lid:
+                adbb._log.debug("fetching mylist with lid")
+                req = MylistCommand(lid=self._lid)
             else:
                 if self._path:
                     if self.db_data and self.db_data.aid:
@@ -755,6 +808,9 @@ class File(AniDBObj):
         if self.db_data and self.db_data.fid:
             req = MyListDelCommand(fid=self.db_data.fid)
             self._anidb_link.request(req, _mylistdel_callback, prio=True)
+        elif self.db_data and self.db_data.lid:
+            req = MyListDelCommand(lid=self.db_data.lid)
+            self._anidb_link.request(req, _mylistdel_callback, prio=True)
         elif self.is_generic:
             if self._multiep:
                 episodes = self._multiep
@@ -772,6 +828,7 @@ class File(AniDBObj):
                     size=self.size,
                     ed2k=self.ed2khash)
             self._anidb_link.request(req, _mylistdel_callback, prio=True)
+        self._lid = None
         sess = self._get_db_session()
         finfo = {
                 'mylist_state': None,
@@ -806,6 +863,19 @@ class File(AniDBObj):
                         "says: {}".format(self, res.rescode))
             elif res.rescode in ('210', '310', '311'):
                 adbb._log.info("File {} added to mylist".format(self))
+                # if 'entrycnt' is > 1 this is actually the lid...
+                # ... which is good I guess, because we want it.
+                adbb._log.debug("lines from MYLISTADD command: {}".format(res.datalines))
+                if 'entries' in res.datalines[0]:
+                    res = int(res.datalines[0]['entries'])
+                elif 'entrycnt' in res.datalines[0]:
+                    res = int(res.datalines[0]['entrycnt'])
+                if res > 1:
+                    sess = self._get_db_session()
+                    self.db_data = sess.merge(self.db_data)
+                    self.db_data.update(lid=res)
+                    self._db_commit(sess)
+                    self._close_db_session(sess)
             wait.set()
 
         try:
@@ -886,7 +956,7 @@ class File(AniDBObj):
             self._close_db_session(sess)
         else:
             # Oh lord, another slowdown? 
-            # Sorry, since anidb doesn't return our lid or fid when adding we
+            # Sorry, since anidb doesn't return our lid and eid when adding we
             # have to do another request here...
             locked = self._updating.acquire(False)
             if not locked:
@@ -951,7 +1021,7 @@ class File(AniDBObj):
         return (anime, episodes)
 
 
-    def _search_filename(self, filename, regex):
+    def _search_filename(self, filename, regex, anime):
         ret = []
         res = regex.search(filename)
         if res:
@@ -961,9 +1031,23 @@ class File(AniDBObj):
                 try:
                     ep = int(m)
                 except ValueError:
+                    adbb._log.warning("Got non-numeric episode number when searching '{}' with regex '{}'".format(
+                            filename, regex))
                     continue
                 if res.group(1).lower() == 's':
                     ret.append("S{}".format(ep))
+                elif res.group(1).lower() == 'o':
+                    ret.append("C{}".format(ep))
+                elif res.group(1).lower() == 'e':
+                    # This is error prone, but we're guessing that endings
+                    # starts at half the credits count...
+                    count = anime.credit_count
+                    if count:
+                        start = int(count/2)
+                        ep = start + ep
+                    ret.append("C{}".format(ep))
+                elif res.group(1).lower() in ('t', 'pv'):
+                    ret.append("T{}".format(ep))
                 else:
                     ret.append(str(ep))
             adbb._log.debug("file '{}': looks like episode(s) {}".format(
@@ -971,19 +1055,34 @@ class File(AniDBObj):
         return ret
 
     def _guess_epno_from_filename(self, filename, anime):
-        # The last regexp is the fallback, don't use that just yet.
-        for r in adbb.fileinfo.ep_nr_re[:-1]:
-            ret = self._search_filename(filename, r)
+        count = 1
+        ret = None
+        for r in adbb.fileinfo.ep_nr_re:
+            # abort when we reach the fallback regex; represented by a None
+            # entry in the array
+            if not r:
+                break
+            count += 1
+            ret = self._search_filename(filename, r, anime)
             if ret:
                 break
         if not ret:
-            # if this series/movie/ova only has one regular episode, we claim
-            # this is it.
-            if anime.nr_of_episodes == 1:
+            if self.force_single_episode_series:
+                # We assume that this file belongs to an anime with just a
+                # single episode
                 return [Episode(anime=anime, epno=1)]
+            else:
+                # if this series/movie/ova only has one regular episode, we claim
+                # this is it.
+                if anime.nr_of_episodes == 1:
+                    return [Episode(anime=anime, epno=1)]
+
             # multi episode series, but the regular regexp gave nothing, try
-            # the fallback regexp and give up
-            ret = self._search_filename(filename, adbb.fileinfo.ep_nr_re[-1])
+            # the fallbacks
+            for r in adbb.fileinfo.ep_nr_re[count:]:
+                ret = self._search_filename(filename, adbb.fileinfo.ep_nr_re[-1], anime)
+                if ret:
+                    break
             if not ret:
                 adbb._log.debug("file '{}': could not figure out episode number(s)"\
                         .format(filename))
