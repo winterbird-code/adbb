@@ -386,6 +386,12 @@ class Episode(AniDBObj):
     def __eq__(self, other):
         if not isinstance(other, Episode):
             return NotImplemented
+        if self._eid and other._eid:
+            return self._eid == other._eid
+        if self._lid and other._lid:
+            return self._lid == other._lid
+        if self._episode_number and other._episode_number:
+            return self._episode_number == other._episode_number
         return self.eid == other.eid or self.lid == other.lid
 
     def __repr__(self):
@@ -403,6 +409,7 @@ class File(AniDBObj):
     _ed2khash = None
     _mtime = None
     _lid = None
+    db_data = None
 
     @property
     def anime(self):
@@ -426,8 +433,11 @@ class File(AniDBObj):
                 or 'eid' in kwargs:
             adbb._log.debug("Creating episode with {}".format(kwargs))
             self._episode = Episode(**kwargs)
-        else:
+        elif self.eid:
             self._episode = Episode(self.eid)
+        else: 
+            anime, episodes = self._guess_anime_ep_from_file(aid=self._anime.aid)
+            self._episode = episodes[0]
         return self._episode
 
     @property
@@ -555,6 +565,7 @@ class File(AniDBObj):
 
     def _get_db_data(self):
         sess = self._get_db_session()
+        res = None
         if self._fid:
             res = sess.query(FileTable).filter_by(fid=self._fid).all()
         elif self._lid:
@@ -565,12 +576,12 @@ class File(AniDBObj):
                 sess.delete(res[0])
                 self._db_commit(sess)
                 res = []
-        else:
+        elif self._episode._eid:
             res = sess.query(FileTable).filter_by(
                     aid=self._anime.aid,
-                    eid=self._episode.eid,
+                    eid=self._episode._eid,
                     path=None).all()
-        if len(res) > 0:
+        if res and len(res) > 0:
             self.db_data = res[0]
             adbb._log.debug("Found db_data for file: {}".format(self.db_data))
         self._close_db_session(sess)
