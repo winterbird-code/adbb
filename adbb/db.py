@@ -31,8 +31,8 @@ def init_db(url):
 class AnimeTable(Base):
     __tablename__ = 'anime'
 
-    pk = Column(BigInteger, primary_key=True)
-    aid = Column(BigInteger, nullable=False, unique=True)
+    pk = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    aid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False, unique=True)
     # TODO dateflags?
     year = Column(String(16), nullable=False)
     type = Column(String(16), nullable=False)
@@ -53,8 +53,8 @@ class AnimeTable(Base):
     review_count = Column(Integer, nullable=False)
     is_18_restricted = Column(Boolean, nullable=False)
 
-    ann_id = Column(BigInteger, nullable=True)
-    allcinema_id = Column(BigInteger, nullable=True)
+    ann_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True)
+    allcinema_id = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True)
     animenfo_id = Column(String(64), nullable=True)
     anidb_updated = Column(DateTime(timezone=False), nullable=False)
 
@@ -88,9 +88,9 @@ class AnimeTable(Base):
 class AnimeRelationTable(Base):
     __tablename__ = 'anime_relation'
 
-    pk = Column(BigInteger, primary_key=True)
-    anime_pk = Column(BigInteger, ForeignKey('anime.pk'), nullable=False)
-    related_aid = Column(BigInteger, nullable=False)
+    pk = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    anime_pk = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey('anime.pk'), nullable=False)
+    related_aid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
     relation_type = Column(
             Enum(
                 'sequel',
@@ -124,9 +124,9 @@ class AnimeRelationTable(Base):
 class EpisodeTable(Base):
     __tablename__ = 'episode'
 
-    pk = Column(BigInteger, primary_key=True)
-    aid = Column(BigInteger, nullable=False, index=True)
-    eid = Column(BigInteger, nullable=False, unique=True, index=True)
+    pk = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    aid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False, index=True)
+    eid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False, unique=True, index=True)
     length = Column(Integer, nullable=False)
     rating = Column(Float, nullable=True)
     votes = Column(Integer, nullable=False)
@@ -165,15 +165,15 @@ class EpisodeTable(Base):
 class FileTable(Base):
     __tablename__ = 'file'
 
-    pk = Column(BigInteger, primary_key=True)
+    pk = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
     path = Column(Unicode(512), nullable=True)
-    size = Column(BigInteger, nullable=True)
+    size = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True)
     ed2khash = Column(String(64), nullable=True)
     mtime = Column(DateTime(timezone=False), nullable=True)
-    aid = Column(BigInteger, nullable=False, index=True)
-    gid = Column(BigInteger, nullable=True)
-    eid = Column(BigInteger, nullable=False, index=True)
-    fid = Column(BigInteger, nullable=True, index=True)
+    aid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False, index=True)
+    gid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True)
+    eid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False, index=True)
+    fid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True, index=True)
     is_deprecated = Column(Boolean, nullable=True)
     is_generic = Column(Boolean, nullable=False)
 
@@ -211,7 +211,7 @@ class FileTable(Base):
     mylist_storage = Column(String(128), nullable=True)
     mylist_source = Column(String(128), nullable=True)
     mylist_other = Column(String(128), nullable=True)
-    lid = Column(BigInteger, nullable=True)
+    lid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True)
 
     updated = Column(DateTime(timezone=True), nullable=True)
 

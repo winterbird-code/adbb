@@ -20,6 +20,7 @@ import difflib
 import gzip
 import os
 import sys
+import tempfile
 import time
 import xml.etree.ElementTree as etree
 
@@ -37,34 +38,29 @@ import adbb
 import adbb.animeobjs
 
 _animetitles_url="http://anidb.net/api/animetitles.xml.gz"
-_animetitles_file="/var/tmp/adbb/animetitles.xml.gz"
-iso_639_file=os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "ISO-639-2_utf-8.txt")
+_animetitles_file=os.path.join(tempfile.gettempdir(), _animetitles_url.split('/')[-1])
+iso_639_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "ISO-639-2_utf-8.txt")
 
 xml = None
 languages = None
 
+
 def update_animetitles(only_if_needed=False):
     global xml
     tmp_dir = os.path.dirname(_animetitles_file)
-
     file_exist = os.path.isfile(_animetitles_file)
-
     if not os.path.isdir(tmp_dir):
         os.makedirs(tmp_dir)
 
-    stat = os.stat(_animetitles_file)
     if os.path.isfile(_animetitles_file):
+        stat = os.stat(_animetitles_file)
         if only_if_needed and stat.st_mtime > (time.time()-604800): # update after one week
             if xml is None:
                 xml = _read_anidb_xml()
             return
 
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f")
-    tmp_file = os.path.join(
-            os.path.dirname(_animetitles_file),
-            ".animetitles{}.xml.gz".format(now))
+    tmp_file = os.path.join(os.path.dirname(_animetitles_file), ".animetitles{}.xml.gz".format(now))
 
     try:
         with open(tmp_file, "bw") as f:

@@ -42,21 +42,23 @@ def init(
         sql_db_url, 
         debug=False,
         loglevel='info',
+        logger=None,
         outgoing_udp_port=9876):
 
-    logger = logging.getLogger(__name__)
-    logger.setLevel(loglevel.upper())
-    if debug:
-        logger.setLevel(logging.DEBUG)
-        lh = logging.StreamHandler()
-        lh.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s %(filename)s:%(lineno)d - %(message)s'))
-        logger.addHandler(lh)
 
-    lh = logging.handlers.SysLogHandler(address='/dev/log')
-    lh.setFormatter(logging.Formatter(
-        'adbb %(filename)s/%(funcName)s:%(lineno)d - %(message)s'))
-    logger.addHandler(lh)
+    if logger is None:
+        logger = logging.getLogger(__name__)
+        logger.setLevel(loglevel.upper())
+        if debug:
+            logger.setLevel(logging.DEBUG)
+            lh = logging.StreamHandler()
+            lh.setFormatter(logging.Formatter(
+                '%(asctime)s %(levelname)s %(filename)s:%(lineno)d - %(message)s'))
+            logger.addHandler(lh)
+        lh = logging.handlers.SysLogHandler(address='/dev/log')
+        lh.setFormatter(logging.Formatter(
+            'adbb %(filename)s/%(funcName)s:%(lineno)d - %(message)s'))
+        logger.addHandler(lh)
 
     global _log, _anidb, Session
     _log = logger

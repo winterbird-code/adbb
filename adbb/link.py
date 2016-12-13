@@ -201,7 +201,7 @@ class AniDBLink(threading.Thread):
     def set_banned(self, reason=None):
         adbb._log.error("Oh no! I'm banned: {}".\
                 format(reason))
-        self.banned += 1
+        self._banned += 1
         self._authed.clear()
         self._session = 0
         self._reauthenticate()
@@ -227,6 +227,7 @@ class AniDBListener(threading.Thread):
     def _connect_socket(self, myport, timeout):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(timeout)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(('', myport))
         return sock
 
@@ -234,7 +235,7 @@ class AniDBListener(threading.Thread):
         self.sock.close()
         self.sock = None
 
-    def stop (self):
+    def stop(self):
         adbb._log.debug("Closing listening socket")
         self._disconnect_socket()
 
