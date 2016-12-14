@@ -34,11 +34,10 @@ else:
     import urllib.error
     import urllib.request
 
-import adbb
 import adbb.animeobjs
+from adbb.errors import AniDBError
 
 _animetitles_url="http://anidb.net/api/animetitles.xml.gz"
-_animetitles_file=os.path.join(tempfile.gettempdir(), _animetitles_url.split('/')[-1])
 iso_639_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "ISO-639-2_utf-8.txt")
 
 xml = None
@@ -47,20 +46,25 @@ languages = None
 
 def update_animetitles(only_if_needed=False):
     global xml
-    tmp_dir = os.path.dirname(_animetitles_file)
-    file_exist = os.path.isfile(_animetitles_file)
-    if not os.path.isdir(tmp_dir):
-        os.makedirs(tmp_dir)
+    file_name = _animetitles_url.split('/')[-1]
+    if os.name == 'posix':
+        animetitles_file = os.path.join('/var/tmp', file_name)
+    else:
+        animetitles_file = os.path.join(tempfile.gettempdir(), file_name)
 
-    if os.path.isfile(_animetitles_file):
-        stat = os.stat(_animetitles_file)
+    tmp_dir = os.path.dirname(animetitles_file)
+    if not os.access(tmp_dir, os.W_OK):
+        raise AniDBError("Cant get writeable temp path: %s" % tmp_dir)
+
+    if os.path.isfile(animetitles_file):
+        stat = os.stat(animetitles_file)
         if only_if_needed and stat.st_mtime > (time.time()-604800): # update after one week
             if xml is None:
-                xml = _read_anidb_xml()
+                xml = _read_anidb_xml(animetitles_file)
             return
 
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f")
-    tmp_file = os.path.join(os.path.dirname(_animetitles_file), ".animetitles{}.xml.gz".format(now))
+    tmp_file = os.path.join(os.path.dirname(animetitles_file), ".animetitles{}.xml.gz".format(now))
 
     try:
         with open(tmp_file, "bw") as f:
@@ -68,16 +72,17 @@ def update_animetitles(only_if_needed=False):
             f.write(res.read())
     except (IOError, urllib.error.URLError) as err:
         adbb.log.error("Failed to fetch animetitles.xml: {}".format(err))
+        file_exist = os.path.isfile(animetitles_file)
         if not xml and file_exist:
-            xml = _read_anidb_xml()
+            xml = _read_anidb_xml(animetitles_file)
         return
     
     if not _verify_animetitles_file(tmp_file):
         adbb.log.error("Failed to verify xml file: {}".format(tmp_file))
         return
 
-    os.rename(tmp_file, _animetitles_file)
-    tmp_xml = _read_anidb_xml(_animetitles_file)
+    os.rename(tmp_file, animetitles_file)
+    tmp_xml = _read_anidb_xml(animetitles_file)
     if tmp_xml:
         xml = tmp_xml
     
@@ -98,9 +103,7 @@ def _verify_animetitles_file(path):
     return True
         
 
-def _read_anidb_xml(filePath=None):
-    if not filePath:
-        filePath = _animetitles_file
+def _read_anidb_xml(filePath):
     return _read_xml_into_etree(filePath)
 
 
