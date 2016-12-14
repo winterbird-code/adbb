@@ -54,8 +54,8 @@ def update_animetitles(only_if_needed=False):
     if not os.path.isdir(tmp_dir):
         os.makedirs(tmp_dir)
 
-    stat = os.stat(_animetitles_file)
     if os.path.isfile(_animetitles_file):
+        stat = os.stat(_animetitles_file)
         if only_if_needed and stat.st_mtime > (time.time()-604800): # update after one week
             if xml is None:
                 xml = _read_anidb_xml()
