@@ -21,7 +21,7 @@ import random
 import re
 import threading
 
-import sqlalchemy 
+import sqlalchemy
 
 import adbb
 import adbb.anames
@@ -31,8 +31,8 @@ from adbb.db import *
 from adbb.commands import *
 from adbb.errors import *
 
-class AniDBObj(object):
 
+class AniDBObj(object):
     def __init__(self):
         self._anidb_link = adbb._anidb
         self._updated = threading.Event()
@@ -40,10 +40,10 @@ class AniDBObj(object):
         self.db_data = None
 
     def _fetch_anidb_data(self, block):
-        adbb._log.debug("Seding anidb request for {}".format(self))
+        adbb.log.debug("Seding anidb request for {}".format(self))
         thread = threading.Thread(
-                target=self._send_anidb_update_req,
-                kwargs={'prio': block})
+            target=self._send_anidb_update_req,
+            kwargs={'prio': block})
         thread.start()
         if block:
             thread.join()
@@ -64,7 +64,7 @@ class AniDBObj(object):
         if not self.db_data:
             self.update(block=True)
         else:
-            age = datetime.datetime.now()-self.db_data.updated
+            age = datetime.datetime.now() - self.db_data.updated
             ref = datetime.timedelta()
             # never update twice the same day...
             if age < datetime.timedelta(days=1):
@@ -90,11 +90,10 @@ class AniDBObj(object):
                     break
                 refresh_probability += 10
             refresh_probability = min(100, refresh_probability)
-            adbb._log.debug("Probability of updating {}: {}% ({}% from class rules)".format(
-                    self, refresh_probability, class_probability))
+            adbb.log.debug("Probability of updating {}: {}% ({}% from class rules)".format(
+                self, refresh_probability, class_probability))
             if random.randrange(100) < refresh_probability:
                 self.update(block=block)
-
 
     def _send_anidb_update_req(self):
         raise Exception("Not implemented")
@@ -110,20 +109,20 @@ class AniDBObj(object):
             session.commit()
         except sqlalchemy.exc.DBAPIError as e:
             if self.db_data:
-                adbb._log.warning("Failed to update data {}: {}".format(
+                adbb.log.warning("Failed to update data {}: {}".format(
                     self.db_data, e))
             else:
-                adbb._log.warning("Failed to update db: {}".format(e))
+                adbb.log.warning("Failed to update db: {}".format(e))
             session.rollback()
 
     def __getattr__(self, name):
         local_vars = vars(self)
         local_name = "_{}".format(name)
-        #adbb._log.debug("Requested attribute {} (in local_vars: {})".format(
+        # adbb._log.debug("Requested attribute {} (in local_vars: {})".format(
         #    name, local_name in local_vars))
         if local_name in local_vars and local_vars[local_name]:
             return local_vars[local_name]
-        
+
         self._updating.acquire()
         self._updating.release()
         self.update_if_old()
@@ -131,7 +130,6 @@ class AniDBObj(object):
 
 
 class Anime(AniDBObj):
-
     def __init__(self, init):
         super(Anime, self).__init__()
         self._aid = None
@@ -140,13 +138,13 @@ class Anime(AniDBObj):
 
         if isinstance(init, int):
             self._aid, self._titles, score, best_title = adbb.anames.get_titles(
-                    aid=init)[0]
+                aid=init)[0]
         elif isinstance(init, str):
             self._aid, self._titles, score, best_title = adbb.anames.get_titles(
-                    name=init)[0]
+                name=init)[0]
 
-        self._title = [x.title for x in self.titles 
-                if x.lang == None and x.titletype == 'main'][0]
+        self._title = [x.title for x in self.titles
+                       if x.lang is None and x.titletype == 'main'][0]
         self.db_data = None
         self._get_db_data()
 
@@ -157,7 +155,7 @@ class Anime(AniDBObj):
         # anime and we fetched our data, the more likely is it that it has
         # changed again. So we start at 60%, and removes 20% for each week
         probability = 60
-        data_age = self.db_data.updated-self.db_data.anidb_updated
+        data_age = self.db_data.updated - self.db_data.anidb_updated
         while probability > 0:
             data_age -= datetime.timedelta(weeks=1)
             if data_age < ref:
@@ -181,17 +179,17 @@ class Anime(AniDBObj):
 
         if all([x in ainfo and ainfo[x] for x in ['related_aid_list', 'related_aid_type']]):
             relations = zip(
-                    ainfo['related_aid_list'].split("'"), 
-                    ainfo['related_aid_type'].split("'"))
+                ainfo['related_aid_list'].split("'"),
+                ainfo['related_aid_type'].split("'"))
         if 'related_aid_list' in ainfo:
             del ainfo['related_aid_list']
         if 'related_aid_type' in ainfo:
             del ainfo['related_aid_type']
         relations = [
-                AnimeRelationTable(
-                    related_aid=int(x),
-                    relation_type=adbb.mapper.anime_relation_map[y])
-                for x, y in relations]
+            AnimeRelationTable(
+                related_aid=int(x),
+                relation_type=adbb.mapper.anime_relation_map[y])
+            for x, y in relations]
 
         # convert datatypes
         for attr, data in ainfo.items():
@@ -208,11 +206,11 @@ class Anime(AniDBObj):
                 for sr in self.db_data.relations:
                     if r.related_aid == sr.related_aid:
                         found = True
-                        sr.relation_type=r.relation_type
+                        sr.relation_type = r.relation_type
                         sr.anime_pk = self.db_data.pk
                         new_relations.append(sr)
                 if not found:
-                    r.anime_pk=self.db_data.pk
+                    r.anime_pk = self.db_data.pk
                     new_relations.append(r)
             for r in self.db_data.relations:
                 if r not in new_relations:
@@ -221,9 +219,7 @@ class Anime(AniDBObj):
         else:
             new = AnimeTable(**ainfo)
             new.updated = datetime.datetime.now()
-
             new.relations = relations
-
             # commit to sql database
             sess.add(new)
 
@@ -236,18 +232,22 @@ class Anime(AniDBObj):
     def _send_anidb_update_req(self, prio=False):
         self._updated.clear()
         req = AnimeCommand(
-                aid=str(self.aid), 
-                amask=adbb.mapper.getAnimeBitsA(adbb.mapper.anime_map_a))
+            aid=str(self.aid),
+            amask=adbb.mapper.getAnimeBitsA(adbb.mapper.anime_map_a))
         self._anidb_link.request(req, self._db_data_callback, prio=prio)
         self._updated.wait()
         self._updating.release()
 
     @property
     def relations(self):
-        self.update_if_old()
-        return [(x.relation_type, Anime(x.related_aid)) \
-                    for x in self.db_data.relations]
-
+        try:
+            relations = [(x.relation_type, Anime(x.related_aid)) for x in self.db_data.relations]
+        except sqlalchemy.orm.exc.DetachedInstanceError:
+            self._get_db_data(close=False)
+            sess = self._get_db_session()
+            relations = [(x.relation_type, Anime(x.related_aid)) for x in self.db_data.relations]
+            self._close_db_session(sess)
+        return relations
 
     def __eq__(self, other):
         if not isinstance(other, Anime):
@@ -261,8 +261,9 @@ class Anime(AniDBObj):
 
     def __repr__(self):
         return "Anime(title='{}', aid={})".format(
-                self.title,
-                self.aid)
+            self.title,
+            self.aid)
+
 
 class AnimeTitle:
     def __init__(self, titletype, lang, title):
@@ -272,12 +273,12 @@ class AnimeTitle:
 
     def __repr__(self):
         return "AnimeTitle(type='{}', lang='{}', title='{}')".format(
-                self.titletype,
-                self.lang,
-                self.title)
+            self.titletype,
+            self.lang,
+            self.title)
+
 
 class Episode(AniDBObj):
-
     _eid = None
     _anime = None
     _episode_number = None
@@ -295,9 +296,7 @@ class Episode(AniDBObj):
         super(Episode, self).__init__()
 
         if not ((anime and epno) or eid):
-            raise AniDBError(
-                    "Episode must be created with either anime and epno, "\
-                    "or eid.")
+            raise AniDBError("Episode must be created with either anime and epno or eid.")
         if eid:
             self._eid = eid
         if anime:
@@ -328,11 +327,11 @@ class Episode(AniDBObj):
             res = sess.query(EpisodeTable).filter_by(eid=self._eid).all()
         else:
             res = sess.query(EpisodeTable).filter_by(
-                    aid=self._anime.aid,
-                    epno=self.episode_number).all()
+                aid=self._anime.aid,
+                epno=self.episode_number).all()
         if len(res) > 0:
             self.db_data = res[0]
-            adbb._log.debug("Found db_data for episode: {}".format(self.db_data))
+            adbb.log.debug("Found db_data for episode: {}".format(self.db_data))
             if self.db_data.epno:
                 self._episode_number = self.db_data.epno
         self._close_db_session(sess)
@@ -340,7 +339,7 @@ class Episode(AniDBObj):
     def _anidb_data_callback(self, res):
         sess = self._get_db_session()
         if res.rescode == "340":
-            adbb._log.warning("No such episode in anidb: {}".format(self))
+            adbb.log.warning("No such episode in anidb: {}".format(self))
             self._updated.set()
             return
         einfo = res.datalines[0]
@@ -381,7 +380,6 @@ class Episode(AniDBObj):
         self._anidb_link.request(req, self._anidb_data_callback, prio=prio)
         self._updated.wait()
         self._updating.release()
-        
 
     def __eq__(self, other):
         if not isinstance(other, Episode):
@@ -396,10 +394,10 @@ class Episode(AniDBObj):
 
     def __repr__(self):
         return "Episode(anime={}, episode_number='{}', eid={})".format(
-                self._anime, self._episode_number, self._eid)
+            self._anime, self._episode_number, self._eid)
+
 
 class File(AniDBObj):
-
     _anime = None
     _episode = None
     _multiep = []
@@ -431,11 +429,11 @@ class File(AniDBObj):
             kwargs['eid'] = self.db_data.eid
         if ('epno' in kwargs and 'anime' in kwargs) \
                 or 'eid' in kwargs:
-            adbb._log.debug("Creating episode with {}".format(kwargs))
+            adbb.log.debug("Creating episode with {}".format(kwargs))
             self._episode = Episode(**kwargs)
         elif self.eid:
             self._episode = Episode(self.eid)
-        else: 
+        else:
             anime, episodes = self._guess_anime_ep_from_file(aid=self._anime.aid)
             self._episode = episodes[0]
         return self._episode
@@ -452,15 +450,14 @@ class File(AniDBObj):
         else:
             return [self.episode.episode_number]
 
-
     @property
     def size(self):
         if self._size:
             return self._size
         if self.path:
             self._mtime, self._size = adbb.fileinfo.get_file_stats(
-                    self.path,
-                    self.nfs_obj)
+                self.path,
+                self.nfs_obj)
         elif self.db_data and self.db_data.size:
             self._size = self.db_data.size
         return self._size
@@ -471,8 +468,8 @@ class File(AniDBObj):
             return self._mtime
         if self.path:
             self._mtime, self._size = adbb.fileinfo.get_file_stats(
-                    self.path,
-                    self.nfs_obj)
+                self.path,
+                self.nfs_obj)
         elif self.db_data and self.db_data.mtime:
             self._mtime = self.db_data.mtime
         return self._mtime
@@ -487,8 +484,8 @@ class File(AniDBObj):
                     self.db_data.size and \
                     self.db_data.ed2khash:
                 mtime, size = adbb.fileinfo.get_file_stats(
-                        self.path,
-                        self.nfs_obj)
+                    self.path,
+                    self.nfs_obj)
                 if mtime == self.db_data.mtime and size == self.db_data.size:
                     self._ed2khash = self.db_data.ed2khash
 
@@ -496,12 +493,12 @@ class File(AniDBObj):
                 return self._ed2khash
 
             self._ed2khash = adbb.fileinfo.get_file_hash(
-                    self._path,
-                    self.nfs_obj)
-            adbb._log.debug("Calculated ed2khash: {}".format(self._ed2khash))
+                self._path,
+                self.nfs_obj)
+            adbb.log.debug("Calculated ed2khash: {}".format(self._ed2khash))
             return self._ed2khash
 
-        adbb._log.debug("Trying to fetch ed2khash from anidb")
+        adbb.log.debug("Trying to fetch ed2khash from anidb")
         # wait for any update process to finish
         self._updating.acquire()
         self._updating.release()
@@ -512,11 +509,11 @@ class File(AniDBObj):
         return self._ed2khash
 
     def __init__(
-            self, 
-            path=None, 
-            fid=None, 
+            self,
+            path=None,
+            fid=None,
             lid=None,
-            anime=None, 
+            anime=None,
             episode=None,
             nfs_obj=None,
             force_single_episode_series=False):
@@ -524,19 +521,18 @@ class File(AniDBObj):
         self.force_single_episode_series = force_single_episode_series
         self._file_updated = threading.Event()
         self._mylist_updated = threading.Event()
-        adbb._log.debug("path: {}, fid: {}, anime: {}, episode: {}, lid: {}".format(
-                path, fid, anime, episode, lid))
+        adbb.log.debug("path: {}, fid: {}, anime: {}, episode: {}, lid: {}".format(
+            path, fid, anime, episode, lid))
         if not path and not fid and not (anime and episode) and not lid:
-            raise AniDBError("File must be created with either filname, fid, "\
-                    "lid or anime and episode.")
+            raise AniDBError("File must be created with either filname, fid, lid or anime and episode.")
 
         self.nfs_obj = nfs_obj
         if path:
             self._path = path
             self._mtime, self._size = adbb.fileinfo.get_file_stats(
-                    self._path,
-                    self.nfs_obj)
-            adbb._log.debug("Created File {} - size: {}, mtime: {}".format(self._path, self._size, self._mtime))
+                self._path,
+                self.nfs_obj)
+            adbb.log.debug("Created File {} - size: {}, mtime: {}".format(self._path, self._size, self._mtime))
         if fid:
             self._fid = int(fid)
         if lid:
@@ -578,14 +574,13 @@ class File(AniDBObj):
                 res = []
         elif self._episode._eid:
             res = sess.query(FileTable).filter_by(
-                    aid=self._anime.aid,
-                    eid=self._episode._eid,
-                    path=None).all()
+                aid=self._anime.aid,
+                eid=self._episode._eid,
+                path=None).all()
         if res and len(res) > 0:
             self.db_data = res[0]
-            adbb._log.debug("Found db_data for file: {}".format(self.db_data))
+            adbb.log.debug("Found db_data for file: {}".format(self.db_data))
         self._close_db_session(sess)
-
 
     def _anidb_file_data_callback(self, res):
         sess = self._get_db_session()
@@ -593,14 +588,14 @@ class File(AniDBObj):
         update_mylist = False
         if res.rescode in ('340', '320'):
             finfo = {'is_generic': True}
-        else: 
+        else:
             finfo = res.datalines[0]
             state = None
 
             # if this file previously was generic, the file has probably been
             # added to anidb. We should remove any generic file from mylist and
             # add this instead.
-            if self.db_data and self.db_data.is_generic: 
+            if self.db_data and self.db_data.is_generic:
                 update_mylist = True
 
             if 'state' in finfo:
@@ -639,9 +634,9 @@ class File(AniDBObj):
             finfo['size'] = self._size
             finfo['ed2khash'] = self._ed2khash
 
-        if not 'aid' in finfo:
+        if 'aid' not in finfo:
             finfo['aid'] = 0
-        if not 'eid' in finfo:
+        if 'eid' not in finfo:
             finfo['eid'] = 0
         if 'fid' in finfo:
             self._fid = finfo['fid']
@@ -678,17 +673,15 @@ class File(AniDBObj):
 
         if update_mylist:
             self.add_to_mylist(
-                    state = self.db_data.mylist_state,
-                    watched = self.db_data.mylist_viewedate,
-                    source = self.db_data.mylist_source,
-                    other = self.db_data.mylist_other)
-
+                state=self.db_data.mylist_state,
+                watched=self.db_data.mylist_viewdate,
+                source=self.db_data.mylist_source,
+                other=self.db_data.mylist_other)
 
     def _anidb_mylist_data_callback(self, res):
         new = None
         if res.rescode == '312':
-            raise AniDBFileError("adbb currently does not support multiple mylist "\
-                    "entries for a single episode")
+            raise AniDBFileError("adbb currently does not support multiple mylist entries for a single episode")
         elif res.rescode == '321':
             finfo = {}
             if not self.db_data:
@@ -721,7 +714,7 @@ class File(AniDBObj):
                     or (self.db_data.fid and 'fid' in finfo and self.db_data.fid != finfo['fid']) \
                     or (self.db_data.lid and 'lid' in finfo and self.db_data.lid != finfo['lid']):
                 finfo = {}
-            adbb._log.debug("New mylist info: {}".format(finfo))
+            adbb.log.debug("New mylist info: {}".format(finfo))
             self.db_data = sess.merge(self.db_data)
             self.db_data.update(**finfo)
             self.db_data.updated = datetime.datetime.now()
@@ -735,45 +728,44 @@ class File(AniDBObj):
         self._db_commit(sess)
         self._close_db_session(sess)
         self._mylist_updated.set()
-            
 
     def _send_anidb_update_req(self, prio=False, req_mylist=False, req_file=True):
-        adbb._log.debug("updating - fid: {}, size: {}, path: {}".format(
-                self._fid,
-                self._size,
-                self._path))
+        adbb.log.debug("updating - fid: {}, size: {}, path: {}".format(
+            self._fid,
+            self._size,
+            self._path))
         if req_file:
             if self._fid:
                 self._file_updated.clear()
-                adbb._log.debug("sending file request with fid")
+                adbb.log.debug("sending file request with fid")
                 req = FileCommand(
-                        fid=self._fid,
-                        fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
-                        amask=adbb.mapper.getFileBitsA(['epno'])
-                        )
+                    fid=self._fid,
+                    fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
+                    amask=adbb.mapper.getFileBitsA(['epno'])
+                )
                 self._anidb_link.request(req, self._anidb_file_data_callback,
-                        prio=prio)
+                                         prio=prio)
                 self._file_updated.wait()
             elif self._size and self._path:
                 self._file_updated.clear()
-                adbb._log.debug("sending file request with size and hash")
+                adbb.log.debug("sending file request with size and hash")
                 req = FileCommand(
-                        size=self._size, 
-                        ed2k=self.ed2khash, 
-                        fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
-                        amask=adbb.mapper.getFileBitsA(['epno']))
+                    size=self._size,
+                    ed2k=self.ed2khash,
+                    fmask=adbb.mapper.getFileBitsF(adbb.mapper.file_map_f),
+                    amask=adbb.mapper.getFileBitsA(['epno']))
                 self._anidb_link.request(req, self._anidb_file_data_callback,
-                        prio=prio)
+                                         prio=prio)
                 self._file_updated.wait()
         # We want to send a mylist request only if explicitly asked for, or if
         # we didn't get a fid from the File request
         if req_mylist or not self._fid:
             if self._fid:
-                adbb._log.debug("fetching mylist with fid")
+                adbb.log.debug("fetching mylist with fid")
                 req = MyListCommand(fid=self._fid)
             elif self._lid:
-                adbb._log.debug("fetching mylist with lid")
-                req = MylistCommand(lid=self._lid)
+                adbb.log.debug("fetching mylist with lid")
+                req = MyListCommand(lid=self._lid)
             else:
                 if self._path:
                     if self.db_data and self.db_data.aid:
@@ -784,36 +776,36 @@ class File(AniDBObj):
                         anime, episodes = self._guess_anime_ep_from_file(aid=self._anime.aid)
                         if anime and episodes:
                             self._multiep = [e.episode_number for e in episodes]
-                            self._anime=anime
+                            self._anime = anime
                             self._episode = episodes[0]
                             if self.db_data and not self.db_data.aid:
                                 self.db_data.aid = anime.aid
-                adbb._log.debug("fetching mylist with aid and epno")
+                adbb.log.debug("fetching mylist with aid and epno")
                 req = MyListCommand(
-                        aid=self._anime.aid,
-                        epno=self.episode.episode_number)
-            adbb._log.debug("sending mylist request")
+                    aid=self._anime.aid,
+                    epno=self.episode.episode_number)
+            adbb.log.debug("sending mylist request")
             self._anidb_link.request(req, self._anidb_mylist_data_callback,
-                    prio=prio)
+                                     prio=prio)
             self._mylist_updated.wait()
         self._updating.release()
 
     def __repr__(self):
-        return "File(path='{}', fid={}, anime={}, episode={})".\
-                format(
-                    self._path, 
-                    self._fid, 
-                    self._anime, 
-                    self._episode)
+        return "File(path='{}', fid={}, anime={}, episode={})". \
+            format(
+                self._path,
+                self._fid,
+                self._anime,
+                self._episode)
 
     def remove_from_mylist(self):
         wait = threading.Event()
 
         def _mylistdel_callback(res):
             if res.rescode == '211':
-                adbb._log.info("File {} removed from mylist".format(self))
+                adbb.log.info("File {} removed from mylist".format(self))
             elif res.rescode == '411':
-                adbb._log.warning("File {} was not in mylist".format(self))
+                adbb.log.warning("File {} was not in mylist".format(self))
             wait.set()
 
         if self.db_data and self.db_data.fid:
@@ -830,27 +822,27 @@ class File(AniDBObj):
             for ep in episodes:
                 wait.clear()
                 req = MyListDelCommand(
-                        aid=self._anime.aid,
-                        epno=self.episode.episode_number)
+                    aid=self._anime.aid,
+                    epno=self.episode.episode_number)
                 self._anidb_link.request(req, _mylistdel_callback, prio=True)
                 wait.wait()
         else:
             req = MyListDelCommand(
-                    size=self.size,
-                    ed2k=self.ed2khash)
+                size=self.size,
+                ed2k=self.ed2khash)
             self._anidb_link.request(req, _mylistdel_callback, prio=True)
         self._lid = None
         sess = self._get_db_session()
         finfo = {
-                'mylist_state': None,
-                'mylist_filestate': None,
-                'mylist_viewed': None,
-                'mylist_viewdate': None,
-                'mylist_storage': None,
-                'mylist_source': None,
-                'mylist_other': None,
-                'lid': None,
-                }
+            'mylist_state': None,
+            'mylist_filestate': None,
+            'mylist_viewed': None,
+            'mylist_viewdate': None,
+            'mylist_storage': None,
+            'mylist_source': None,
+            'mylist_other': None,
+            'lid': None,
+        }
         self.db_data = sess.merge(self.db_data)
         self.db_data.update(**finfo)
         self._db_commit(sess)
@@ -858,7 +850,7 @@ class File(AniDBObj):
         wait.wait()
 
     def update_mylist(
-            self, 
+            self,
             state=None,
             watched=None,
             source=None,
@@ -867,16 +859,16 @@ class File(AniDBObj):
         self.update_if_old()
         viewdate = None
         edit = False
+        req = None
 
         def _mylistadd_callback(res):
             if res.rescode in ('320', '330', '350', '310', '322', '411'):
-                adbb._log.warning("Could not add file {} to mylist, anidb "\
-                        "says: {}".format(self, res.rescode))
+                adbb.log.warning("Could not add file {} to mylist, anidb says: {}".format(self, res.rescode))
             elif res.rescode in ('210', '310', '311'):
-                adbb._log.info("File {} added to mylist".format(self))
+                adbb.log.info("File {} added to mylist".format(self))
                 # if 'entrycnt' is > 1 this is actually the lid...
                 # ... which is good I guess, because we want it.
-                adbb._log.debug("lines from MYLISTADD command: {}".format(res.datalines))
+                adbb.log.debug("lines from MYLISTADD command: {}".format(res.datalines))
                 if 'entries' in res.datalines[0]:
                     res = int(res.datalines[0]['entries'])
                 elif 'entrycnt' in res.datalines[0]:
@@ -890,7 +882,7 @@ class File(AniDBObj):
             wait.set()
 
         try:
-            state_num = [x for x,y in adbb.mapper.mylist_state_map.items() if y==state][0]
+            state_num = [x for x, y in adbb.mapper.mylist_state_map.items() if y == state][0]
         except IndexError:
             state_num = None
 
@@ -898,7 +890,7 @@ class File(AniDBObj):
             if isinstance(watched, datetime.datetime):
                 viewdate = int(watched.timestamp())
             viewed = 1
-        elif watched == False:
+        elif watched is False:
             viewed = 0
         else:
             viewed = None
@@ -906,21 +898,21 @@ class File(AniDBObj):
         if self.lid:
             edit = True
             req = MyListAddCommand(
-                    lid=self.db_data.lid,
-                    edit=1,
-                    state=state_num, 
-                    viewed=viewed,
-                    viewdate=viewdate,
-                    source=source,
-                    other=other)
+                lid=self.db_data.lid,
+                edit=1,
+                state=state_num,
+                viewed=viewed,
+                viewdate=viewdate,
+                source=source,
+                other=other)
         elif self.fid:
             req = MyListAddCommand(
-                    fid=self.fid, 
-                    state=state_num, 
-                    viewed=viewed,
-                    viewdate=viewdate,
-                    source=source,
-                    other=other)
+                fid=self.fid,
+                state=state_num,
+                viewed=viewed,
+                viewdate=viewdate,
+                source=source,
+                other=other)
         elif self.is_generic:
             if self._multiep:
                 episodes = self._multiep
@@ -929,23 +921,23 @@ class File(AniDBObj):
             for ep in episodes:
                 wait.clear()
                 req = MyListAddCommand(
-                        aid=self._anime.aid,
-                        epno=ep,
-                        generic=1,
-                        state=state_num, 
-                        viewed=viewed,
-                        viewdate=viewdate,
-                        source=source,
-                        other=other)
-        else:
-            req = MyListAddCommand(
-                    size=self.size,
-                    ed2k=self.ed2khash,
-                    state=state_num, 
+                    aid=self._anime.aid,
+                    epno=ep,
+                    generic=1,
+                    state=state_num,
                     viewed=viewed,
                     viewdate=viewdate,
                     source=source,
                     other=other)
+        else:
+            req = MyListAddCommand(
+                size=self.size,
+                ed2k=self.ed2khash,
+                state=state_num,
+                viewed=viewed,
+                viewdate=viewdate,
+                source=source,
+                other=other)
         self._anidb_link.request(req, _mylistadd_callback, prio=True)
         wait.wait()
         if edit:
@@ -960,9 +952,9 @@ class File(AniDBObj):
                 else:
                     self.db_data.mylist_viewdate = datetime.datetime.now()
             if source:
-                self.db_data.mylist_source=source
+                self.db_data.mylist_source = source
             if other:
-                self.db_data.mylist_other=other
+                self.db_data.mylist_other = other
             self._db_commit(sess)
             self._close_db_session(sess)
         else:
@@ -983,10 +975,10 @@ class File(AniDBObj):
         head, parent_dir = os.path.split(head)
 
         # try to figure out which episodes this file contains
-        #episodes = self._guess_epno_from_filename(filename)
-        #if not episodes:
+        # episodes = self._guess_epno_from_filename(filename)
+        # if not episodes:
         #    return (None, None)
-        #if aid:
+        # if aid:
         #    return (aid, episodes)
 
         if not aid:
@@ -995,10 +987,10 @@ class File(AniDBObj):
                 series = adbb.anames.get_titles(name=parent_dir)
                 if series:
                     aid = series[0][0]
-                    adbb._log.debug("dir '{}': score {} for '{}'".format(
-                            parent_dir, series[0][2], series[0][3]))
+                    adbb.log.debug("dir '{}': score {} for '{}'".format(
+                        parent_dir, series[0][2], series[0][3]))
                 else:
-                    adbb._log.debug("dir '{}': no match".format(parent_dir))
+                    adbb.log.debug("dir '{}': no match".format(parent_dir))
 
             # no confident hit on parent directory, trying filename
             if not aid:
@@ -1017,12 +1009,12 @@ class File(AniDBObj):
                 # probably not very similar to the real title...
                 series = adbb.anames.get_titles(name=joined, score_for_match=0.5)
                 if series:
-                    adbb._log.debug("file '{}': trimmed to '{}', score {} for '{}'"\
-                            .format(filename, joined, series[0][2], series[0][3]))
+                    adbb.log.debug(
+                        "file '{}': trimmed to '{}', score {} for '{}'".format(filename, joined, series[0][2],
+                                                                               series[0][3]))
                     aid = series[0][0]
                 else:
-                    adbb._log.debug("file '{}': trimmed to '{}', no match".\
-                            format(filename, joined))
+                    adbb.log.debug("file '{}': trimmed to '{}', no match".format(filename, joined))
             if not aid:
                 return (None, None)
 
@@ -1030,7 +1022,6 @@ class File(AniDBObj):
         episodes = self._guess_epno_from_filename(filename, anime)
 
         return (anime, episodes)
-
 
     def _search_filename(self, filename, regex, anime):
         ret = []
@@ -1042,8 +1033,8 @@ class File(AniDBObj):
                 try:
                     ep = int(m)
                 except ValueError:
-                    adbb._log.warning("Got non-numeric episode number when searching '{}' with regex '{}'".format(
-                            filename, regex))
+                    adbb.log.warning("Got non-numeric episode number when searching '{}' with regex '{}'".format(
+                        filename, regex))
                     continue
                 if res.group(1).lower() == 's':
                     ret.append("S{}".format(ep))
@@ -1054,15 +1045,15 @@ class File(AniDBObj):
                     # starts at half the credits count...
                     count = anime.credit_count
                     if count:
-                        start = int(count/2)
+                        start = int(count / 2)
                         ep = start + ep
                     ret.append("C{}".format(ep))
                 elif res.group(1).lower() in ('t', 'pv'):
                     ret.append("T{}".format(ep))
                 else:
                     ret.append(str(ep))
-            adbb._log.debug("file '{}': looks like episode(s) {}".format(
-                    filename, ret))
+            adbb.log.debug("file '{}': looks like episode(s) {}".format(
+                filename, ret))
         return ret
 
     def _guess_epno_from_filename(self, filename, anime):
@@ -1095,10 +1086,8 @@ class File(AniDBObj):
                 if ret:
                     break
             if not ret:
-                adbb._log.debug("file '{}': could not figure out episode number(s)"\
-                        .format(filename))
+                adbb.log.debug("file '{}': could not figure out episode number(s)".format(filename))
         return [Episode(anime=anime, epno=e) for e in ret]
-
 
     def __eq__(self, other):
         if not isinstance(other, File):
@@ -1115,4 +1104,3 @@ class File(AniDBObj):
         if not isinstance(other, Episode):
             return NotImplemented
         return other.episode_number in self.multiep
-

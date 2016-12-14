@@ -67,13 +67,13 @@ def update_animetitles(only_if_needed=False):
             res = urllib.request.urlopen(_animetitles_url)
             f.write(res.read())
     except (IOError, urllib.error.URLError) as err:
-        adbb._log.error("Failed to fetch animetitles.xml: {}".format(err))
+        adbb.log.error("Failed to fetch animetitles.xml: {}".format(err))
         if not xml and file_exist:
             xml = _read_anidb_xml()
         return
     
     if not _verify_animetitles_file(tmp_file):
-        adbb._log.error("Failed to verify xml file: {}".format(tmp_file))
+        adbb.log.error("Failed to verify xml file: {}".format(tmp_file))
         return
 
     os.rename(tmp_file, _animetitles_file)
@@ -89,7 +89,7 @@ def _verify_animetitles_file(path):
     try:
         tmp_xml = _read_anidb_xml(path)
     except Exception as e:
-        adbb._log.error("Exception when reading xml file: {}".format(e))
+        adbb.log.error("Exception when reading xml file: {}".format(e))
         return False
 
     if len(tmp_xml.findall('anime')) < 8000:
@@ -97,7 +97,6 @@ def _verify_animetitles_file(path):
     
     return True
         
-
 
 def _read_anidb_xml(filePath=None):
     if not filePath:
@@ -115,6 +114,7 @@ def _read_xml_into_etree(filePath):
         xmlASetree = etree.fromstring(data)
         return xmlASetree
 
+
 def _read_language_file():
     global languages
     languages = {}
@@ -123,6 +123,7 @@ def _read_language_file():
             three, tree2, two, eng, fre = line.strip().split('|')
             if two:
                 languages[two] = three
+
 
 def get_lang_code(short):
     if not languages:
