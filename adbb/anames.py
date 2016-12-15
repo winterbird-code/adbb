@@ -46,6 +46,7 @@ languages = None
 
 def update_animetitles(only_if_needed=False):
     global xml
+
     file_name = _animetitles_url.split('/')[-1]
     if os.name == 'posix':
         animetitles_file = os.path.join('/var/tmp', file_name)
@@ -58,6 +59,7 @@ def update_animetitles(only_if_needed=False):
 
     if os.path.isfile(animetitles_file):
         stat = os.stat(animetitles_file)
+
         if only_if_needed and stat.st_mtime > (time.time()-604800): # update after one week
             if xml is None:
                 xml = _read_anidb_xml(animetitles_file)

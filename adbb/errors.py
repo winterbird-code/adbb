@@ -49,3 +49,6 @@ class AniDBFileError(AniDBError):
 
 class AniDBPathError(AniDBError):
     pass
+
+class IllegalAnimeObject(AniDBError):
+    pass
