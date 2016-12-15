@@ -30,14 +30,14 @@ import adbb.commands
 
 class AniDBLink(threading.Thread):
     def __init__(self,
-            user,
-            pwd,
-            #host='localhost',
-            host='api.anidb.info',
-            port=9000,
-            myport=9876,
-            nat_ping_interval=600,
-            timeout=20):
+                    user,
+                    pwd,
+                    #host='localhost',
+                    host='api.anidb.info',
+                    port=9000,
+                    myport=9876,
+                    nat_ping_interval=600,
+                    timeout=20):
         super(AniDBLink, self).__init__()
         self._user = user
         self._pwd = pwd
@@ -89,12 +89,11 @@ class AniDBLink(threading.Thread):
         port = int(port)
         if port != self._myport:
             self._do_ping = True
-            adbb._log.info("NAT detected: will send PING every {} seconds".format(
+            adbb.log.info("NAT detected: will send PING every {} seconds".format(
                     self._nat_ping_interval))
         with self._auth_lock:
             self._authed.set()
             self._authenticating.clear()
-
 
     def _new_tag(self):
         if self._current_tag >= 999:
@@ -108,9 +107,9 @@ class AniDBLink(threading.Thread):
     def _do_delay(self):
         if self._banned > 0:
             delay = max(pow(2*3600, self._banned), 48*3600)
-            adbb._log.info("Banned, sleeping for {} hours".format(delay/3600))
+            adbb.log.info("Banned, sleeping for {} hours".format(delay / 3600))
             sleep(delay)
-            adbb._log.info("Slept well, let's see if we're still banned...")
+            adbb.log.info("Slept well, let's see if we're still banned...")
             self._reauthenticate()
             return
         age = time() - self._last_packet
@@ -123,7 +122,7 @@ class AniDBLink(threading.Thread):
             delay = 4
         delay = delay-age
         if delay > 0:
-            adbb._log.debug("Delaying request with {} seconds".format(delay))
+            adbb.log.debug("Delaying request with {} seconds".format(delay))
             sleep(delay)
 
     def run(self):
@@ -137,7 +136,7 @@ class AniDBLink(threading.Thread):
                     command = adbb.commands.PingCommand()
                     self.request(command)
             command = self._queue.pop()
-            adbb._log.debug("sending command {} with tag {}".format(
+            adbb.log.debug("sending command {} with tag {}".format(
                     command.command, command.tag))
             if command.command != 'AUTH':
                 if not self._authed.is_set():
@@ -158,19 +157,18 @@ class AniDBLink(threading.Thread):
         data = command.raw_data().encode('utf-8')
         
         if command.command == 'AUTH':
-            adbb._log.debug("NetIO > AUTH data is not logged!")
+            adbb.log.debug("NetIO > AUTH data is not logged!")
         else:
-            adbb._log.debug("NetIO > %s" % repr(data))
+            adbb.log.debug("NetIO > %s" % repr(data))
 
         self._listener.sock.sendto(data, self._server)
-
 
     def request(self, command, callback, prio=False):
         command.started = None
         command.callback = callback
         command.tag = self._new_tag()
         self._listener.cmd_queue[command.tag] = command
-        adbb._log.debug("Queued command {} with tag {}".format(
+        adbb.log.debug("Queued command {} with tag {}".format(
                 command.command, command.tag))
         # special case, AUTH command should not be queued but sent asap.
         if command.command == 'AUTH':
@@ -189,9 +187,9 @@ class AniDBLink(threading.Thread):
         self._session = None
         self._reauthenticate()
 
-    def stop (self):
+    def stop(self):
         if self._authed.isSet():
-            adbb._log.debug("Logging out from AniDB")
+            adbb.log.debug("Logging out from AniDB")
             req = adbb.commands.LogoutCommand()
             self.request(req, self._logout_handler)
             self._stop.wait(self.timeout)
@@ -199,9 +197,8 @@ class AniDBLink(threading.Thread):
             self._listener.stop()
 
     def set_banned(self, reason=None):
-        adbb._log.error("Oh no! I'm banned: {}".\
-                format(reason))
-        self.banned += 1
+        adbb.log.error("Oh no! I'm banned: {}".format(reason))
+        self._banned += 1
         self._authed.clear()
         self._session = 0
         self._reauthenticate()
@@ -227,6 +224,7 @@ class AniDBListener(threading.Thread):
     def _connect_socket(self, myport, timeout):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(timeout)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind(('', myport))
         return sock
 
@@ -234,26 +232,26 @@ class AniDBListener(threading.Thread):
         self.sock.close()
         self.sock = None
 
-    def stop (self):
-        adbb._log.debug("Closing listening socket")
+    def stop(self):
+        adbb.log.debug("Closing listening socket")
         self._disconnect_socket()
 
     def run(self):
         while self.sock:
             self.sock.settimeout(self.timeout)
             try:
-                adbb._log.debug("Listening on socket with {}s timeout".format(self.sock.gettimeout()))
+                adbb.log.debug("Listening on socket with {}s timeout".format(self.sock.gettimeout()))
                 data = self.sock.recv(8192)
             except socket.timeout:
                 self._handle_timeouts()
                 continue
-            adbb._log.debug("NetIO < %s" % repr(data))
+            adbb.log.debug("NetIO < %s" % repr(data))
             for i in range(2):
                 tmp = data
                 resp = None
                 if tmp[:2] == b'\x00\x00':
                     tmp = zlib.decompressobj().decompress(tmp[2:])
-                    adbb._log.debug("UnZip | %s" % repr(tmp))
+                    adbb.log.debug("UnZip | %s" % repr(tmp))
                 resp = ResponseResolver(tmp)
             if not resp:
                 raise AniDBPacketCorruptedError("Either decrypting, decompressing or parsing the packet failed")
@@ -261,7 +259,7 @@ class AniDBListener(threading.Thread):
                 cmd = self.cmd_queue.pop(resp.restag)
             else:
                 # No responsetag... we're probably banned
-                adbb._log.critical("We've been banned from the anidb UDP API: {}".format(repr(data)))
+                adbb.log.critical("We've been banned from the anidb UDP API: {}".format(repr(data)))
                 reason = resp.resstr
                 self._sender.set_banned(reason=reason)
                 continue
@@ -270,8 +268,7 @@ class AniDBListener(threading.Thread):
             if resp.rescode in ('200', '201'):
                 self._sender.set_session(resp.attrs['sesskey'])
             elif resp.rescode in ('209',):
-                adbb._log.error("sorry encryption is not supported")
-                raise
+                raise AniDBError("sorry encryption is not supported")
             elif resp.rescode in ('501', '506', '403'):
                 self._sender.reauthenticate()
                 self._sender.request(cmd, cmd.callback, prio=True)
@@ -285,15 +282,16 @@ class AniDBListener(threading.Thread):
 
     def _handle_timeouts(self):
         willpop = []
-        adbb._log.debug("Timeout; commands in queue: {}".format(self.cmd_queue))
+        adbb.log.debug("Timeout; commands in queue: {}".format(self.cmd_queue))
+        cmd = None
         for tag, cmd in self.cmd_queue.items():
             if not tag:
                 continue
             if cmd.started:
-                adbb._log.debug("Command {} started at {} (now {}".format(
+                adbb.log.debug("Command {} started at {} (now {}".format(
                         tag, cmd.started, time()))
                 if time() - cmd.started > self.timeout:
-                    adbb._log.warning("Command {} timed out".format(tag))
+                    adbb.log.warning("Command {} timed out".format(tag))
                     willpop.append(tag)
 
         for tag in willpop:
