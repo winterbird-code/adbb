@@ -35,16 +35,17 @@ else:
     import urllib.request
 
 import adbb.animeobjs
-from adbb.errors import AniDBError
+from adbb.errors import AniDBError, AniDBFileError
 
 _animetitles_url="http://anidb.net/api/animetitles.xml.gz"
 iso_639_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "ISO-639-2_utf-8.txt")
+_update_interval = datetime.timedelta(hours=36)
 
 xml = None
 languages = None
 
 
-def update_animetitles(only_if_needed=False):
+def update_animetitles():
     global xml
 
     file_name = _animetitles_url.split('/')[-1]
@@ -57,12 +58,12 @@ def update_animetitles(only_if_needed=False):
     if not os.access(tmp_dir, os.W_OK):
         raise AniDBError("Cant get writeable temp path: %s" % tmp_dir)
 
-    if os.path.isfile(animetitles_file):
+    old_file_exists = os.path.isfile(animetitles_file)
+    if old_file_exists:
         stat = os.stat(animetitles_file)
-
-        if only_if_needed and stat.st_mtime > (time.time()-604800): # update after one week
-            if xml is None:
-                xml = _read_anidb_xml(animetitles_file)
+        file_moddate = datetime.datetime.fromtimestamp(stat.st_mtime)
+        if file_moddate > (datetime.datetime.now() - _update_interval):
+            xml = _read_anidb_xml(animetitles_file)
             return
 
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f")
@@ -71,11 +72,13 @@ def update_animetitles(only_if_needed=False):
     try:
         with open(tmp_file, "bw") as f:
             res = urllib.request.urlopen(_animetitles_url)
+            adbb.log.info('Fetching titledb cache file from anidb.')
             f.write(res.read())
     except (IOError, urllib.error.URLError) as err:
         adbb.log.error("Failed to fetch animetitles.xml: {}".format(err))
-        file_exist = os.path.isfile(animetitles_file)
-        if not xml and file_exist:
+        adbb.log.info("You might be temporary ip-banned from anidb, banns will be automatically lifted after 24 hours!")
+        os.remove(tmp_file)
+        if old_file_exists:
             xml = _read_anidb_xml(animetitles_file)
         return
     
@@ -83,11 +86,11 @@ def update_animetitles(only_if_needed=False):
         adbb.log.error("Failed to verify xml file: {}".format(tmp_file))
         return
 
+    if old_file_exists:
+        os.remove(animetitles_file)
     os.rename(tmp_file, animetitles_file)
-    tmp_xml = _read_anidb_xml(animetitles_file)
-    if tmp_xml:
-        xml = tmp_xml
-    
+    xml = _read_anidb_xml(animetitles_file)
+
 
 def _verify_animetitles_file(path):
     if not os.path.isfile(path):
@@ -141,8 +144,11 @@ def get_lang_code(short):
 
 def get_titles(name=None, aid=None, max_results=10, score_for_match=0.6):
     res = []
-    
-    update_animetitles(only_if_needed=True)
+
+    if xml is None:
+        update_animetitles()
+    if xml is None:
+        raise AniDBFileError('Could not get valid title cache file.')
 
     lastAid = None
     for anime in xml.findall('anime'):

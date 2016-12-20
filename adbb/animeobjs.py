@@ -110,7 +110,7 @@ class AniDBObj(object):
     def _db_commit(self, session):
         try:
             session.commit()
-            adbb._log.debug("Object saved to database: {}".format(self.db_data))
+            adbb.log.debug("Object saved to database: {}".format(self.db_data))
         except sqlalchemy.exc.DBAPIError as e:
             if self.db_data:
                 adbb.log.warning("Failed to update data {}: {}".format(
@@ -181,7 +181,7 @@ class Anime(AniDBObj):
         new = None
         if res.rescode == "330":
             self._illegal_object = True
-            self._log.warning('{} is not a valid Anime object'.format(self))
+            self.log.warning('{} is not a valid Anime object'.format(self))
             self._updated.set()
             return
 
@@ -747,7 +747,7 @@ class File(AniDBObj):
             new = FileTable(**finfo)
             new.updated = datetime.datetime.now()
             sess.add(new)
-            adbb._log.debug("Adding mylist info: {}".format(finfo))
+            adbb.log.debug("Adding mylist info: {}".format(finfo))
 
         if new:
             self.db_data = new
