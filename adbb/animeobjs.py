@@ -588,10 +588,10 @@ class File(AniDBObj):
                 sess.delete(res[0])
                 self._db_commit(sess)
                 res = []
-        elif self._episode._eid:
+        elif self._episode.eid:
             res = sess.query(FileTable).filter_by(
                 aid=self._anime.aid,
-                eid=self._episode._eid,
+                eid=self._episode.eid,
                 path=None).all()
         if res and len(res) > 0:
             self.db_data = res[0]
