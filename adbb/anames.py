@@ -25,7 +25,7 @@ import time
 import xml.etree.ElementTree as etree
 
 if sys.version_info[0] < 3:
-    import urllib as local_urllib
+    import urllib2 as local_urllib
     urllib = local_urllib
     urllib.error = local_urllib
     urllib.request = local_urllib
@@ -70,7 +70,7 @@ def update_animetitles():
     tmp_file = os.path.join(os.path.dirname(animetitles_file), ".animetitles{}.xml.gz".format(now))
 
     try:
-        with open(tmp_file, "bw") as f:
+        with open(tmp_file, "wb") as f:
             res = urllib.request.urlopen(_animetitles_url)
             adbb.log.info('Fetching titledb cache file from anidb.')
             f.write(res.read())
