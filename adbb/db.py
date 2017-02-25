@@ -226,7 +226,7 @@ class FileTable(Base):
         return '<FileTable(pk={pk}, path={path}, mylist_state={state}, ' \
                'mylist_viewed={viewed}, updated={updated})>'.format(
                 pk=self.pk,
-                path=self.path,
+                path=self.path.encode('utf-8'),
                 state=self.mylist_state,
                 viewed=self.mylist_viewed,
                 updated=self.updated)
