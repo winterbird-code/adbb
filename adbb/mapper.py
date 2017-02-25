@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with adbb.  If not, see <http://www.gnu.org/licenses/>.
 from random import shuffle
-import datetime
+from datetime import datetime, timedelta
 
 _blacklist = ('unused', 'retired', 'reserved', 'not_implemented')
 
