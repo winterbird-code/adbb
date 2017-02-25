@@ -222,6 +222,7 @@ class FileTable(Base):
         for key, attr in kwargs.items():
             setattr(self, key, attr)
 
+    @property
     def __repr__(self):
         return '<FileTable(pk={pk}, path={path}, mylist_state={state}, ' \
                'mylist_viewed={viewed}, updated={updated})>'.format(
