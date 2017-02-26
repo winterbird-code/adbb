@@ -37,7 +37,7 @@ anime_map_a_converters = {
     'is_18_restricted': lambda x: x == "1",
     'ann_id': int,
     'allcinema_id': int,
-    'anidb_updated': lambda x: datetime(1970, 1, 1) + timedelta(seconds=(int(x))) if x and int(x) else None,
+    'anidb_updated': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
     'special_count': int,
     'credit_count': int,
     'other_count': int,
@@ -80,7 +80,7 @@ file_map_f_converters = {
     'mylist_state': lambda x: mylist_state_map[x] if x else None,
     'mylist_filestate': lambda x: mylist_filestate_map[x] if x else None,
     'mylist_viewed': lambda x: x == '1',
-    'mylist_viewdate': lambda x: datetime(1970, 1, 1) + timedelta(seconds=(int(x))) if x and int(x) else None,
+    'mylist_viewdate': lambda x: lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
     'mylist_storage': lambda x: x or None,
     'mylist_source': lambda x: x or None,
     'mylist_other': lambda x: x or None
@@ -112,7 +112,7 @@ mylist_map_converters = {
     'aid': int,
     'gid': int,
     'mylist_state': lambda x: mylist_state_map[x] if x else None,
-    'mylist_viewdate': lambda x: datetime(1970, 1, 1) + timedelta(seconds=(int(x))) if x and int(x) else None,
+    'mylist_viewdate': lambda x: lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
     'mylist_storage': lambda x: x or None,
     'mylist_source': lambda x: x or None,
     'mylist_other': lambda x: x or None
