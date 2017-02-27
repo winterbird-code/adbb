@@ -26,8 +26,8 @@ anime_map_a_converters = {
     'nr_of_episodes': int,
     'highest_episode_number': int,
     'special_ep_count': int,
-    'air_date': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
-    'end_date': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
+    'air_date': lambda x: datetime.date(1970, 1, 1) + datetime.timedelta(seconds=int(x)) if x and int(x) else None,
+    'end_date': lambda x: datetime.date(1970, 1, 1) + datetime.timedelta(seconds=int(x)) if x and int(x) else None,
     'rating': lambda x: int(x) / 100 if x else None,
     'vote_count': int,
     'temp_rating': lambda x: int(x) / 100 if x else None,
@@ -76,7 +76,7 @@ file_map_f_converters = {
     'ed2khash': lambda x: x or None,
     'length_in_seconds': int,
     'description': lambda x: x or None,
-    'aired_date': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
+    'aired_date': lambda x: datetime.date(1970, 1, 1) + datetime.timedelta(seconds=int(x)) if x and int(x) else None,
     'mylist_state': lambda x: mylist_state_map[x] if x else None,
     'mylist_filestate': lambda x: mylist_filestate_map[x] if x else None,
     'mylist_viewed': lambda x: x == '1',
@@ -101,7 +101,7 @@ episode_map_converters = {
     'length': int,
     'rating': lambda x: int(x) / 100 if x else None,
     'votes': int,
-    'aired': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
+    'aired': lambda x: datetime.date(1970, 1, 1) + datetime.timedelta(seconds=int(x)) if x and int(x) else None,
     'type': lambda x: episode_type_map[x] if x else None,
 }
 
