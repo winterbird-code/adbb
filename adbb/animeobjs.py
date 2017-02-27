@@ -539,7 +539,7 @@ class File(AniDBObj):
         self._file_updated = threading.Event()
         self._mylist_updated = threading.Event()
         adbb.log.debug("path: {}, fid: {}, anime: {}, episode: {}, lid: {}".format(
-            path, fid, anime, episode, lid))
+            path.encode('utf-8'), fid, anime, episode, lid))
         if not path and not fid and not (anime and episode) and not lid:
             raise AniDBError("File must be created with either filname, fid, lid or anime and episode.")
 
@@ -549,7 +549,7 @@ class File(AniDBObj):
             self._mtime, self._size = adbb.fileinfo.get_file_stats(
                 self._path,
                 self.nfs_obj)
-            adbb.log.debug("Created File {} - size: {}, mtime: {}".format(self._path, self._size, self._mtime))
+            adbb.log.debug("Created File {} - size: {}, mtime: {}".format(self._path.encode('utf-8'), self._size, self._mtime))
         if fid:
             self._fid = int(fid)
         if lid:
@@ -759,7 +759,7 @@ class File(AniDBObj):
         adbb.log.debug("updating - fid: {}, size: {}, path: {}".format(
             self._fid,
             self._size,
-            self._path))
+            self._path.encode('utf-8')))
         if req_file:
             if self._fid:
                 self._file_updated.clear()
@@ -823,7 +823,7 @@ class File(AniDBObj):
     def __repr__(self):
         return "File(path='{}', fid={}, anime={}, episode={})". \
             format(
-                self._path,
+                self._path.encode('utf-8'),
                 self._fid,
                 self._anime,
                 self._episode)
