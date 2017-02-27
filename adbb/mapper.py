@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with adbb.  If not, see <http://www.gnu.org/licenses/>.
 from random import shuffle
-import datetime
+from datetime import datetime, timedelta
 
 _blacklist = ('unused', 'retired', 'reserved', 'not_implemented')
 
@@ -26,8 +26,8 @@ anime_map_a_converters = {
     'nr_of_episodes': int,
     'highest_episode_number': int,
     'special_ep_count': int,
-    'air_date': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
-    'end_date': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
+    'air_date': lambda x: datetime(1970, 1, 1) + timedelta(seconds=(int(x))) if x and int(x) else None,
+    'end_date': lambda x: datetime(1970, 1, 1) + timedelta(seconds=(int(x))) if x and int(x) else None,
     'rating': lambda x: int(x) / 100 if x else None,
     'vote_count': int,
     'temp_rating': lambda x: int(x) / 100 if x else None,
@@ -37,7 +37,7 @@ anime_map_a_converters = {
     'is_18_restricted': lambda x: x == "1",
     'ann_id': int,
     'allcinema_id': int,
-    'anidb_updated': lambda x: datetime.datetime.fromtimestamp(int(x)) if x and int(x) else None,
+    'anidb_updated': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
     'special_count': int,
     'credit_count': int,
     'other_count': int,
@@ -76,11 +76,11 @@ file_map_f_converters = {
     'ed2khash': lambda x: x or None,
     'length_in_seconds': int,
     'description': lambda x: x or None,
-    'aired_date': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
+    'aired_date': lambda x: datetime(1970, 1, 1) + timedelta(seconds=(int(x))) if x and int(x) else None,
     'mylist_state': lambda x: mylist_state_map[x] if x else None,
     'mylist_filestate': lambda x: mylist_filestate_map[x] if x else None,
     'mylist_viewed': lambda x: x == '1',
-    'mylist_viewdate': lambda x: datetime.datetime.fromtimestamp(int(x)) if x and int(x) else None,
+    'mylist_viewdate': lambda x: lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
     'mylist_storage': lambda x: x or None,
     'mylist_source': lambda x: x or None,
     'mylist_other': lambda x: x or None
@@ -101,7 +101,7 @@ episode_map_converters = {
     'length': int,
     'rating': lambda x: int(x) / 100 if x else None,
     'votes': int,
-    'aired': lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
+    'aired': lambda x: datetime(1970, 1, 1) + timedelta(seconds=(int(x))) if x and int(x) else None,
     'type': lambda x: episode_type_map[x] if x else None,
 }
 
@@ -112,7 +112,7 @@ mylist_map_converters = {
     'aid': int,
     'gid': int,
     'mylist_state': lambda x: mylist_state_map[x] if x else None,
-    'mylist_viewdate': lambda x: datetime.datetime.fromtimestamp(int(x)) if x and int(x) else None,
+    'mylist_viewdate': lambda x: lambda x: datetime.date.fromtimestamp(int(x)) if x and int(x) else None,
     'mylist_storage': lambda x: x or None,
     'mylist_source': lambda x: x or None,
     'mylist_other': lambda x: x or None
