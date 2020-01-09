@@ -37,6 +37,7 @@ else:
 import adbb.animeobjs
 from adbb.errors import AniDBError, AniDBFileError
 
+_animetitles_useragent="adbb"
 _animetitles_url="http://anidb.net/api/animetitles.xml.gz"
 iso_639_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "ISO-639-2_utf-8.txt")
 _update_interval = datetime.timedelta(hours=36)
@@ -71,7 +72,14 @@ def update_animetitles():
 
     try:
         with open(tmp_file, "wb") as f:
-            res = urllib.request.urlopen(_animetitles_url)
+            req = urllib.request.Request(
+                _animetitles_url,
+                data=None,
+                headers={
+                    'User-Agent': _animetitles_useragent
+                }
+            )
+            res = urllib.request.urlopen(req)
             adbb.log.info('Fetching titledb cache file from anidb.')
             f.write(res.read())
     except (IOError, urllib.error.URLError) as err:
