@@ -223,10 +223,13 @@ class FileTable(Base):
             setattr(self, key, attr)
 
     def __repr__(self):
+        path = None
+        if self.path:
+            path = self.path.encode('utf-8')
         return '<FileTable(pk={pk}, path={path}, mylist_state={state}, ' \
                'mylist_viewed={viewed}, updated={updated})>'.format(
                 pk=self.pk,
-                path=self.path.encode('utf-8'),
+                path=path,
                 state=self.mylist_state,
                 viewed=self.mylist_viewed,
                 updated=self.updated)
