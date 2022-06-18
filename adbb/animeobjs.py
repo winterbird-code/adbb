@@ -78,20 +78,20 @@ class AniDBObj(object):
             # data twice the first week, no matter how many times you request
             # the data.
             # 
-            # add 5 % probability for each of the first 4 weeks, and then
-            # additional 10% for each month (or 30 days) after that.
+            # add 1% probability for each of the first 4 weeks, and then
+            # additional 5% for each month (or 30 days) after that.
             class_probability = self._extra_refresh_probability()
             refresh_probability = class_probability
             while refresh_probability < 100:
                 age -= datetime.timedelta(weeks=1)
                 if age < ref:
                     break
-                refresh_probability += 5
+                refresh_probability += 1
             while refresh_probability < 100:
                 age -= datetime.timedelta(days=30)
                 if age < ref:
                     break
-                refresh_probability += 10
+                refresh_probability += 5
             refresh_probability = min(100, refresh_probability)
             adbb.log.debug("Probability of updating {}: {}% ({}% from class rules)".format(
                 self, refresh_probability, class_probability))
