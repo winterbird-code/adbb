@@ -106,7 +106,7 @@ class AniDBLink(threading.Thread):
 
     def _do_delay(self):
         if self._banned > 0:
-            delay = max(pow(2*3600, self._banned), 48*3600)
+            delay = max(pow(2*3600, self._banned), 1*3600)
             adbb.log.info("Banned, sleeping for {} hours".format(delay / 3600))
             sleep(delay)
             adbb.log.info("Slept well, let's see if we're still banned...")
