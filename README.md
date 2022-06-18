@@ -20,12 +20,12 @@ days (using mtime to calculate age) and then is automatically updated. You can o
 simply removing the cached file :)
 
 ## Requirements
-* recent python (both version 2 and 3 should work)
+* recent python
 * sqlalchemy
 * sqlalchemy-compatible database:
   * mysql is tested
+  * sqlite is tested
   * postgresql should probably work
-  * sqlite might work if you change all BigInteger to Integer
 
 
 ## Usage
@@ -35,7 +35,7 @@ import adbb
 user="<anidb-username>"
 pwd="<anidb-password>"
 
-sql="mysql://<user>:<pass>@<host>/<database>"
+sql="sqlite:///adbb.db"
 
 # initialize backend
 adbb.init(user, pwd, sql, debug=True)
@@ -192,6 +192,35 @@ The following attributes as returned from the AniDB API
 * mylist_source
 * mylist_other
 
+### Group
+```python
+Group(name=None, gid=None)
+```
+Group object requires either a name (can be either short or long name) or gid.
+A group created with a name is always considered valid, and will be saved to the database even if the name does not
+represent a group in AniDB. In that case both the name and the short name will be set to the given name, and all
+other atributes will be empty.
+
+#### Attributes
+* updated - datetime when information about this file was last fetched from AniDB
+
+The following attributes as returned from the AniDB API
+* gid
+* rating
+* votes
+* acount
+* fcount
+* name
+* short
+* irc_channel
+* irc_server
+* url
+* picname
+* founded
+* disbanded
+* dateflag
+* last_release
+* last_activity
 
 ## TODO:
 In no particular order:
@@ -199,5 +228,4 @@ In no particular order:
 * make cache invalidation smarter
 * add better/more error checking, right now it will probably crash at most errors it will encounter :)
 * make multiprocess/multithreading-safe
-* perhaps make it python2 compatible to make it possible to integrate with kodi :)
 * any other feature request?
