@@ -1141,7 +1141,7 @@ class Group(AniDBObj):
 
     def __init__(self, name=None, gid=None):
         super(Group, self).__init__()
-        if not (shortname or name or gid):
+        if not (name or gid):
             raise IllegalAnimeObject("At least name or gid must be given when creating a Group object")
 
         if gid:
@@ -1174,8 +1174,8 @@ class Group(AniDBObj):
                                 relation_type = adbb.mapper.group_relation_map[x.split(',')[1]])
                             for x in relations ]
                     ginfo['relations'] = relations
-                elif attr in adbb.mapper.episode_map_converters:
-                    ginfo[attr] = adbb.mapper.episode_map_converters[attr](data)
+                elif attr in adbb.mapper.group_map_converters:
+                    ginfo[attr] = adbb.mapper.group_map_converters[attr](data)
 
         sess = self._get_db_session()
         if self.db_data:
@@ -1228,3 +1228,9 @@ class Group(AniDBObj):
         self._anidb_link.request(req, self._anidb_data_callback, prio=prio)
         self._updated.wait()
         self._updating.release()
+
+    def __repr__(self):
+        return "Group(gid='{}', name={})". \
+            format(
+                self._gid,
+                self._name)

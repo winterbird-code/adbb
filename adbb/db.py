@@ -249,11 +249,11 @@ class GroupTable(Base):
     irc_server = Column(String(32))
     url = Column(String(248))
     picname = Column(String(32))
-    founded = Column(DateTime(Timezone=False))
-    disbanded = Column(DateTime(Timezone=False))
+    founded = Column(DateTime(timezone=False))
+    disbanded = Column(DateTime(timezone=False))
     dateflag = Column(Integer())
-    last_release = Column(DateTime(Timezone=False))
-    last_activity = Column(DateTime(Timezone=False))
+    last_release = Column(DateTime(timezone=False))
+    last_activity = Column(DateTime(timezone=False))
 
     relations = relationship("GroupRelationTable", backref='group')
 
@@ -265,9 +265,6 @@ class GroupTable(Base):
 
 
     def __repr__(self):
-        path = None
-        if self.path:
-            path = self.path.encode('utf-8')
         return '<GroupTable(pk={pk}, gid={gid}, name={name}>'.format(
                 pk=self.pk,
                 gid=self.gid,

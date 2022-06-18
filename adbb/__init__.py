@@ -23,7 +23,7 @@ import sys
 import adbb.db
 from adbb.link import AniDBLink
 
-from adbb.animeobjs import Anime, AnimeTitle, Episode, File
+from adbb.animeobjs import Anime, AnimeTitle, Episode, File, Group
 
 from adbb.anames import get_titles
 
