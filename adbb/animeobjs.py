@@ -1134,3 +1134,97 @@ class File(AniDBObj):
         if not isinstance(other, Episode):
             return NotImplemented
         return other.episode_number in self.multiep
+
+class Group(AniDBObj):
+    _gid = None
+    _name = None
+
+    def __init__(self, name=None, gid=None):
+        super(Group, self).__init__()
+        if not (shortname or name or gid):
+            raise IllegalAnimeObject("At least name or gid must be given when creating a Group object")
+
+        if gid:
+            self._gid = gid
+        if name:
+            self._name = name
+        self.db_data = None
+        self._get_db_data()
+
+    def _anidb_data_callback(self, res):
+        sess = self._get_db_session()
+        if res.rescode == "350":
+            if self.db_data:
+                sess.delete(self.db_data)
+            if self._name:
+                new = GroupTable(
+                        name=self._name, 
+                        short=self._name,
+                        updated = datetime.datetime.now()
+                        )
+                sess.add(new)
+        else:
+            ginfo = res.datalines[0]
+            for attr, data in ginfo.items():
+                if attr == 'relations':
+                    relations = data.split("'")
+                    relations = [
+                            GroupRelationTable(
+                                related_gid = x.split(',')[0],
+                                relation_type = adbb.mapper.group_relation_map[x.split(',')[1]])
+                            for x in relations ]
+                    ginfo['relations'] = relations
+                elif attr in adbb.mapper.episode_map_converters:
+                    ginfo[attr] = adbb.mapper.episode_map_converters[attr](data)
+
+        sess = self._get_db_session()
+        if self.db_data:
+            self.db_data = sess.merge(self.db_data)
+            self.db_data.update(**ginfo)
+            self.db_data.updated = datetime.datetime.now()
+            new_relations = []
+            for r in ginfo['relations']:
+                found = False
+                for sr in self.db_data.relations:
+                    if r.related_gid == sr.related_gid:
+                        found = True
+                        sr.relation_type = r.relation_type
+                        sr.group_pk = self.db_data.pk
+                        new_relations.append(sr)
+                if not found:
+                    r.group_pk = self.db_data.pk
+                    new_relations.append(r)
+            for r in self.db_data.relations:
+                if r not in new_relations:
+                    sess.delete(r)
+            self.db_data.relations = new_relations
+        else:
+            new = GroupTable(**ginfo)
+            new.updated = datetime.datetime.now()
+            sess.add(new)
+            self.db_data = new
+
+        self._db_commit(sess)
+                
+    def _get_db_data(self):
+        sess = self._get_db_session()
+        if self._gid:
+            res = sess.query(GroupTable).filter_by(gid=self._gid).all()
+        else:
+            res = sess.query(GroupTable).filter(sqlalchemy.or_(
+                GroupTable.name.ilike(self._name), 
+                GroupTable.short.ilike(self._name)))
+        if len(res) > 0:
+            self.db_data = res[0]
+            adbb.log.debug("Found db_data for group: {}".format(self.db_data))
+        self._close_db_session(sess)
+
+    def _send_anidb_update_req(self, prio=False):
+        self._updated.clear()
+        if self._gid:
+            req = GroupCommand(gid=self._gid)
+        else:
+            req = GroupCommand(gname=self._name)
+        self._anidb_link.request(req, self._anidb_data_callback, prio=prio)
+        self._updated.wait()
+        self._updating.release()

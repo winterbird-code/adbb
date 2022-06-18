@@ -233,3 +233,72 @@ class FileTable(Base):
                 state=self.mylist_state,
                 viewed=self.mylist_viewed,
                 updated=self.updated)
+
+class GroupTable(Base):
+    __tablename__ = 'group'
+
+    pk = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    gid = Column(BigInteger().with_variant(Integer, "sqlite"), index=True)
+    rating = Column(BigInteger().with_variant(Integer, "sqlite"))
+    votes = Column(BigInteger().with_variant(Integer, "sqlite"))
+    acount = Column(BigInteger().with_variant(Integer, "sqlite"))
+    fcount = Column(BigInteger().with_variant(Integer, "sqlite"))
+    name = Column(Unicode(248), nullable=False)
+    short = Column(Unicode(64), nullable=False, index=True)
+    irc_channel = Column(String(32))
+    irc_server = Column(String(32))
+    url = Column(String(248))
+    picname = Column(String(32))
+    founded = Column(DateTime(Timezone=False))
+    disbanded = Column(DateTime(Timezone=False))
+    dateflag = Column(Integer())
+    last_release = Column(DateTime(Timezone=False))
+    last_activity = Column(DateTime(Timezone=False))
+
+    relations = relationship("GroupRelationTable", backref='group')
+
+    updated = Column(DateTime(timezone=True), nullable=True)
+
+    def update(self, **kwargs):
+        for key, attr in kwargs.items():
+            setattr(self, key, attr)
+
+
+    def __repr__(self):
+        path = None
+        if self.path:
+            path = self.path.encode('utf-8')
+        return '<GroupTable(pk={pk}, gid={gid}, name={name}>'.format(
+                pk=self.pk,
+                gid=self.gid,
+                name=self.name)
+
+
+class GroupRelationTable(Base):
+    __tablename__ = 'group_relation'
+
+    pk = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True)
+    group_pk = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey('group.pk'), nullable=False)
+    related_gid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=False)
+    relation_type = Column(
+        Enum(
+            'participant in',
+            'parent of',
+            'merged from',
+            'now known as',
+            'other'),
+        nullable=False)
+
+    def __cmp__(self, other):
+        return (
+            self.group_pk == other.group_pk and
+            self.related_gid == other.related_gid and self.relation_type == other.relation_type)
+
+    def __repr__(self):
+        return '<GroupRelationTable(pk={pk}, group_pk={group}, related_gid={related}, ' \
+               'type={type})>'.format(
+                pk=self.pk,
+                anime=self.group_pk,
+                related=self.related_gid,
+                type=self.relation_type)
+

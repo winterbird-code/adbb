@@ -136,6 +136,27 @@ anime_relation_map = {
     "100": "other"
 }
 
+group_map_converters = {
+    'gid': int,
+    'rating': int,
+    'votes': int,
+    'acount': int,
+    'fcount': int,
+    'founded': lambda x: datetime.datetime.fromtimestamp(int(x)) if x and int(x) else None,
+    'disbanded': lambda x: datetime.datetime.fromtimestamp(int(x)) if x and int(x) else None,
+    'dateflags': int,
+    'last_release': lambda x: datetime.datetime.fromtimestamp(int(x)) if x and int(x) else None,
+    'last_activity': lambda x: datetime.datetime.fromtimestamp(int(x)) if x and int(x) else None,
+}
+
+group_relation_map = {
+    '1': 'participated in',
+    '2': 'parent of',
+    '4': 'merged from',
+    '5': 'now known as',
+    '6': 'other'
+}
+
 anime_map_a = ['aid', 'unused', 'year', 'type', 'related_aid_list', 'related_aid_type', 'retired', 'retired',
                'not_implemented', 'not_implemented', 'not_implemented', 'not_implemented', 'not_implemented',
                'not_implemented', 'retired', 'retired',
@@ -168,7 +189,6 @@ file_map_a = ['anime_total_episodes', 'highest_episode_number', 'year', 'type', 
               'unused',
               'group_name', 'group_short_name', 'unused', 'unused', 'unused', 'unused', 'unused',
               'date_aid_record_updated']
-
 
 def getAnimeBitsA(amask):
     bitmap = anime_map_a
@@ -223,41 +243,3 @@ def _getCodes(attrmap, bitChain):
         if bitChain & (2 ** i):
             codeList.append(attrmap[mapLength - i - 1])
     return codeList
-
-
-def checkMapping(verbos=False):
-    print("------")
-    print("File F: " + str(checkMapFileF(verbos)))
-    print("------")
-    print("File A: " + str(checkMapFileA(verbos)))
-
-
-def checkMapFileF(verbos=False):
-    getGeneralMap = file_map_f
-    getBits = lambda x: getFileBitsF(x)
-    getCodes = lambda x: getFileCodesF(x)
-    return _checkMapGeneral(getGeneralMap, getBits, getCodes, verbos=verbos)
-
-
-def checkMapFileA(verbos=False):
-    getGeneralMap = file_map_a
-    getBits = lambda x: getFileBitsA(x)
-    getCodes = lambda x: getFileCodesA(x)
-    return _checkMapGeneral(getGeneralMap, getBits, getCodes, verbos=verbos)
-
-
-def _checkMapGeneral(getGeneralMap, getBits, getCodes, verbos=False):
-    attrmap = getGeneralMap()
-    shuffle(attrmap)
-    mask = [elem for elem in attrmap if elem not in _blacklist][:5]
-    bits = getBits(mask)
-    mask_re = getCodes(bits)
-    bits_re = getBits(mask_re)
-    if verbos:
-        print(mask)
-        print(mask_re)
-        print(bits)
-        print(bits_re)
-        print("bits are:" + str((bits_re == bits)))
-        print("map is :" + str((sorted(mask_re) == sorted(mask))))
-    return (bits_re == bits) and sorted(mask_re) == sorted(mask)

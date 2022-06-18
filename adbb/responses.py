@@ -583,7 +583,10 @@ class GroupResponse(Response):
         self.codestr = 'GROUP'
         self.codehead = ()
         self.codetail = (
-            'gid', 'rating', 'votes', 'animes', 'files', 'name', 'shortname', 'ircchannel', 'ircserver', 'url')
+            'gid', 'rating', 'votes', 'acount', 'fcount', 'name', 'short',
+            'irc_channel', 'irc_server', 'url', 'picname', 'founded',
+            'disbanded', 'dateflag', 'last_release', 'last_activity',
+            'relations')
         self.coderep = ()
 
 
