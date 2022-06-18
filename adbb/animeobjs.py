@@ -1172,7 +1172,7 @@ class Group(AniDBObj):
                             GroupRelationTable(
                                 related_gid = x.split(',')[0],
                                 relation_type = adbb.mapper.group_relation_map[x.split(',')[1]])
-                            for x in relations ]
+                            for x in relations if ',' in x]
                     ginfo['relations'] = relations
                 elif attr in adbb.mapper.group_map_converters:
                     ginfo[attr] = adbb.mapper.group_map_converters[attr](data)
@@ -1205,6 +1205,8 @@ class Group(AniDBObj):
             self.db_data = new
 
         self._db_commit(sess)
+        self._close_db_session(sess)
+        self._updated.set()
                 
     def _get_db_data(self):
         sess = self._get_db_session()
