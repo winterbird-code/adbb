@@ -590,7 +590,7 @@ class File(AniDBObj):
         probability = 0
         # For files, add 1% probability if it is a generic file that is in
         # mylist.
-        if self.db_data.is_generic and self.db_data.mylist_state:
+        if self._is_generic and self.db_data.mylist_state:
             probability = 1
         return max(probability, 0)
 
@@ -610,8 +610,9 @@ class File(AniDBObj):
         elif self._episode.eid:
             res = sess.query(FileTable).filter_by(
                 aid=self._anime.aid,
-                eid=self._episode.eid,
-                path=None).all()
+                eid=self._episode.eid).all()
+            if res and len(res) > 0:
+                res = [x for x in res if x.lid]
         if res and len(res) > 0:
             self.db_data = res[0]
             adbb.log.debug("Found db_data for file: {}".format(self.db_data))
@@ -620,10 +621,24 @@ class File(AniDBObj):
     def _anidb_file_data_callback(self, res):
         new = None
         update_mylist = False
+        finfo = {}
         if res.rescode in ('340', '320'):
             adbb.log.debug('{} is not present in AniDB'.format(self))
-            self._file_updated.set()
-            return
+            if not self.db_data:
+                self._is_generic = True
+                if self._anime:
+                    anime, episodes = self._guess_anime_ep_from_file(aid=self._anime.aid)
+                else:
+                    anime, episodes = self._guess_anime_ep_from_file()
+                if anime and episodes:
+                    self._multiep = [e.episode_number for e in episodes]
+                    self._anime = anime
+                    self._episode = episodes[0]
+                finfo['aid'] = anime.aid
+                finfo['eid'] = episodes[0].eid
+                finfo['is_generic'] = self._is_generic
+            else:
+                return
         else: 
             finfo = res.datalines[0]
             state = None
@@ -631,9 +646,11 @@ class File(AniDBObj):
             # if this file previously was generic, the file has probably been
             # added to anidb. We should remove any generic file from mylist and
             # add this instead.
-            if self.db_data and self.db_data.is_generic:
+            if self.db_data and self._is_generic:
                 update_mylist = True
 
+            self._is_generic = False
+            finfo['is_generic'] = self._is_generic
             if 'state' in finfo:
                 state = int(finfo['state'])
                 del finfo['state']
@@ -662,8 +679,6 @@ class File(AniDBObj):
                 finfo['censored'] = False
             elif state & 0x80:
                 finfo['censored'] = True
-
-            finfo['is_generic'] = False
 
         if self._path:
             finfo['path'] = self._path
@@ -717,30 +732,43 @@ class File(AniDBObj):
     def _anidb_mylist_data_callback(self, res):
         new = None
         if res.rescode == '312':
+            self._mylist_updated.set()
             raise AniDBFileError("adbb currently does not support multiple mylist entries for a single episode")
         elif res.rescode == '321':
-            finfo = {}
-            if not self.db_data:
-                finfo['is_generic'] = True
-            if self._anime:
-                finfo['aid'] = self._anime.aid
-            if self._episode:
-                finfo['eid'] = self._episode.eid
+            self._mylist_updated.set()
+            return
         else:
             finfo = res.datalines[0]
             if 'date' in finfo:
                 del finfo['date']
             for attr, data in finfo.items():
                 finfo[attr] = adbb.mapper.mylist_map_converters[attr](data)
-            # best guess, but this may not always be the case (does no group
-            # have an ID?)
+
+        if 'mylist_viewdate' in finfo and finfo['mylist_viewdate']:
+            finfo['mylist_viewed'] = True
+
+        sess = self._get_db_session()
+        if (self.db_data and self.db_data.is_generic and finfo['gid']) or \
+                (self.db_data and not self.db_data.is_generic and finfo['fid'] != self.db_data.fid):
             if finfo['gid']:
                 finfo['is_generic'] = False
             else:
                 finfo['is_generic'] = True
 
-        if 'mylist_viewdate' in finfo and finfo['mylist_viewdate']:
-            finfo['mylist_viewed'] = True
+            # there is something in mylist; but it's not us :/
+            res = sess.query(FileTable).filter_by(lid=finfo['lid']).all()
+            if not res:
+                new = FileTable(**finfo)
+                new.updated = datetime.datetime.now()
+                sess.add(new)
+            else:
+                obj = res[0]
+                obj.updated = datetime.datetime.now()
+                obj.update(**finfo)
+            self._db_commit(sess)
+            self._close_db_session(sess)
+            self._mylist_updated.set()
+            return
 
         if self._path:
             finfo['path'] = self._path
@@ -748,14 +776,13 @@ class File(AniDBObj):
             finfo['ed2khash'] = self._ed2khash
             finfo['mtime'] = self._mtime
 
-        sess = self._get_db_session()
+
+        if finfo['gid']:
+            self._is_generic = False
+        else:
+            self._is_generic = True
+        finfo['is_generic'] = self._is_generic
         if self.db_data:
-            # This is not our file if we are a generic, but got a gid or we
-            # have a fid/lid which is not the same as the returned fid/lid
-            if (self.path and self.db_data.is_generic and 'gid' in finfo and finfo['gid']) \
-                    or (self.db_data.fid and 'fid' in finfo and self.db_data.fid != finfo['fid']) \
-                    or (self.db_data.lid and 'lid' in finfo and self.db_data.lid != finfo['lid']):
-                finfo = {}
             adbb.log.debug("New mylist info: {}".format(finfo))
             self.db_data = sess.merge(self.db_data)
             self.db_data.update(**finfo)
@@ -763,8 +790,8 @@ class File(AniDBObj):
         else:
             new = FileTable(**finfo)
             new.updated = datetime.datetime.now()
-            sess.add(new)
             adbb.log.debug("Adding mylist info: {}".format(finfo))
+            sess.add(new)
 
         if new:
             self.db_data = new
@@ -800,9 +827,10 @@ class File(AniDBObj):
                 self._anidb_link.request(req, self._anidb_file_data_callback,
                                          prio=prio)
                 self._file_updated.wait()
+
         # We want to send a mylist request only if explicitly asked for, or if
         # we didn't get a fid from the File request
-        if req_mylist or not self._fid:
+        if req_mylist or not self.db_data or not self.db_data.fid:
             if self._fid:
                 adbb.log.debug("fetching mylist with fid")
                 req = MyListCommand(fid=self._fid)
@@ -810,26 +838,9 @@ class File(AniDBObj):
                 adbb.log.debug("fetching mylist with lid")
                 req = MyListCommand(lid=self._lid)
             else:
-                if self._path:
-                    if self.db_data and self.db_data.aid:
-                        self._anime = Anime(self.db_data.aid)
-                    if self.db_data and self.db_data.eid:
-                        self._episode = Episode(eid=self.db_data.eid)
-                    if not (self._anime and self._episode):
-                        if self._anime:
-                            aid = self._anime.aid
-                        else:
-                            aid = None
-                        anime, episodes = self._guess_anime_ep_from_file(aid=aid)
-                        if anime and episodes:
-                            self._multiep = [e.episode_number for e in episodes]
-                            self._anime = anime
-                            self._episode = episodes[0]
-                            if self.db_data and not self.db_data.aid:
-                                self.db_data.aid = anime.aid
                 adbb.log.debug("fetching mylist with aid and epno")
                 req = MyListCommand(
-                    aid=self._anime.aid,
+                    aid=self.anime.aid,
                     epno=self.episode.episode_number)
             adbb.log.debug("sending mylist request")
             self._anidb_link.request(req, self._anidb_mylist_data_callback,
@@ -861,7 +872,7 @@ class File(AniDBObj):
         elif self.db_data and self.db_data.lid:
             req = MyListDelCommand(lid=self.db_data.lid)
             self._anidb_link.request(req, _mylistdel_callback, prio=True)
-        elif self.is_generic:
+        elif self._is_generic:
             if self._multiep:
                 episodes = self._multiep
             else:
@@ -942,6 +953,13 @@ class File(AniDBObj):
         else:
             viewed = None
 
+        # Make sure this episode isn't already in mylist
+        print(self.lid)
+        if not self.lid:
+            other_file = File(anime=self.anime, episode=self.episode)
+            print(other_file.lid)
+            if other_file.lid:
+                other_file.remove_from_mylist()
         if self.lid:
             edit = True
             req = MyListAddCommand(
@@ -1152,7 +1170,7 @@ class File(AniDBObj):
             return NotImplemented
         if self.fid and self.fid == other.fid:
             return True
-        if self.is_generic and other.is_generic:
+        if self._is_generic and other.is_generic:
             return self.episode == other.episode
 
     def __len__(self):
