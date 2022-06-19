@@ -474,8 +474,15 @@ class File(AniDBObj):
         FIXME: add multiep attribute to database..."""
         if self._multiep:
             return self._multiep
+
+        # always try to parse filename first
+        if self.path:
+            episodes = self._guess_epno_from_filename(os.path.split(self.path)[1], self.anime)
+            self._multiep = [ ep.episode_number for ep in episodes ]
         else:
-            return [self.episode.episode_number]
+            self._multiep = [self.episode.episode_number]
+
+        return self._multiep
 
     @property
     def size(self):
@@ -543,9 +550,11 @@ class File(AniDBObj):
             anime=None,
             episode=None,
             nfs_obj=None,
-            force_single_episode_series=False):
+            force_single_episode_series=False,
+            parse_dir=True):
         super(File, self).__init__()
         self.force_single_episode_series = force_single_episode_series
+        self.parse_dir = parse_dir
         self._file_updated = threading.Event()
         self._mylist_updated = threading.Event()
         adbb.log.debug("path: {}, fid: {}, anime: {}, episode: {}, lid: {}".format(
@@ -671,8 +680,6 @@ class File(AniDBObj):
         if 'lid' in finfo:
             self._lid = finfo['lid']
         if 'epno' in finfo:
-            if not self._multiep:
-                self._multiep = [finfo['epno']]
             del finfo['epno']
 
         if update_mylist:
@@ -1023,7 +1030,7 @@ class File(AniDBObj):
 
         if not aid:
             # first try to figure out anime by the directory name
-            if parent_dir:
+            if parent_dir and self.parse_dir:
                 series = adbb.anames.get_titles(name=parent_dir)
                 if series:
                     aid = series[0][0]
@@ -1037,6 +1044,9 @@ class File(AniDBObj):
                 # strip away all kinds of paranthesis like
                 # [<group>], (<codec>) or {<crc>}.
                 stripped = re.sub(r'[{[(][^\]})]*?[})\]]', '', filename)
+                # Remove episode numbers
+                stripped = re.sub(r'-[ _]?\d+(-\d+)?', '', stripped)
+                stripped = re.sub(r'EP?(isode)?[ _]?\d+(-\d+)?', '', stripped, re.I)
                 # remove the file ending
                 stripped, tail = stripped.rsplit('.', 1)
                 # split out all words, this removes all dots, dashes and other
@@ -1127,6 +1137,14 @@ class File(AniDBObj):
                     break
             if not ret:
                 adbb.log.debug("file '{}': could not figure out episode number(s)".format(filename))
+                return []
+        if len(ret) == 2:
+            try:
+                mi = int(ret[0])
+                ma = int(ret[1])
+                ret = [ str(x) for x in range(mi, ma+1) ]
+            except ValueError:
+                pass
         return [Episode(anime=anime, epno=e) for e in ret]
 
     def __eq__(self, other):
