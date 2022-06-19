@@ -107,7 +107,8 @@ class AnimeRelationTable(Base):
             'parent story',
             'summary',
             'full story',
-            'other'),
+            'other',
+            name='anime_relation_type_enum'),
         nullable=False)
 
     def __cmp__(self, other):
@@ -145,7 +146,8 @@ class EpisodeTable(Base):
             'credit',
             'trailer',
             'parody',
-            'other'),
+            'other',
+            name='episode_type_enum'),
         nullable=False)
 
     updated = Column(DateTime(timezone=True), nullable=False)
@@ -194,7 +196,8 @@ class FileTable(Base):
             'unknown',
             'on hdd',
             'on cd',
-            'deleted'),
+            'deleted',
+            name='mylist_state_enum'),
         nullable=True)
     mylist_filestate = Column(
         Enum(
@@ -207,7 +210,8 @@ class FileTable(Base):
             'on tv',
             'in theaters',
             'streamed',
-            'other'),
+            'other',
+            name='mylist_filestate_enum'),
         nullable=True)
     mylist_viewed = Column(Boolean, nullable=True)
     mylist_viewdate = Column(DateTime(timezone=False), nullable=True)
@@ -284,7 +288,8 @@ class GroupRelationTable(Base):
             'merged from',
             'now known as',
             'other',
-            'includes'),
+            'includes',
+            name='group_relation_type_enum'),
         nullable=False)
 
     def __cmp__(self, other):
