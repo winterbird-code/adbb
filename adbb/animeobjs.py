@@ -613,7 +613,7 @@ class File(AniDBObj):
                         ed2khash=self.ed2khash).all()
                 if res:
                     res[0].path = self._path
-                    sess.update(res[0])
+                    sess.merge(res[0])
                     self._db_commit(sess)
         elif self._episode.eid:
             res = sess.query(FileTable).filter_by(
