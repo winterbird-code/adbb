@@ -1243,7 +1243,7 @@ class Group(AniDBObj):
         else:
             res = sess.query(GroupTable).filter(sqlalchemy.or_(
                 GroupTable.name.ilike(self._name), 
-                GroupTable.short.ilike(self._name)))
+                GroupTable.short.ilike(self._name))).all()
         if len(res) > 0:
             self.db_data = res[0]
             adbb.log.debug("Found db_data for group: {}".format(self.db_data))
