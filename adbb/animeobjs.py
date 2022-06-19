@@ -607,6 +607,14 @@ class File(AniDBObj):
                 sess.delete(res[0])
                 self._db_commit(sess)
                 res = []
+            if not res:
+                res = sess.query(FileTable).filter_by(
+                        size=self._size,
+                        ed2khash=self.ed2khash).all()
+                if res:
+                    res[0].path = self._path
+                    sess.update(res[0])
+                    self._db_commit(sess)
         elif self._episode.eid:
             res = sess.query(FileTable).filter_by(
                 aid=self._anime.aid,
