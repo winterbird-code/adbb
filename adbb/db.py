@@ -283,7 +283,8 @@ class GroupRelationTable(Base):
             'parent of',
             'merged from',
             'now known as',
-            'other'),
+            'other',
+            'includes'),
         nullable=False)
 
     def __cmp__(self, other):
