@@ -165,6 +165,7 @@ The update_mylist() function can be used both to add and to edit a file in mylis
 #### Attributes
 * anime - Anime object for which anime this file contains
 * episode - Episode object for which episode this file contains
+* group - Group object for file authors
 * multiep - List of episode numbers this file contains. The episode number parsing supports multiple episodes, but
   fetching from AniDB does not so this is not reliable and I'm not really sure what to do with it...
 * fid - File ID from AniDB

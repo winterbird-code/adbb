@@ -418,6 +418,7 @@ class Episode(AniDBObj):
 class File(AniDBObj):
     _anime = None
     _episode = None
+    _group = None
     _multiep = []
     _fid = None
     _path = None
@@ -454,6 +455,15 @@ class File(AniDBObj):
             anime, episodes = self._guess_anime_ep_from_file(aid=self._anime.aid)
             self._episode = episodes[0]
         return self._episode
+
+    @property
+    def group(self):
+        if self._group:
+            return self._group
+        if self.gid:
+            self._group = Group(gid=self.gid)
+            return self._group
+        return None
 
     @property
     def multiep(self):
