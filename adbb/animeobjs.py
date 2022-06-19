@@ -38,6 +38,7 @@ class AniDBObj(object):
         self._illegal_object = False
         self._updated = threading.Event()
         self._updating = threading.Lock()
+        self._timezone = datetime.timezone(datetime.timedelta(hours=0))
         self.db_data = None
 
     def _fetch_anidb_data(self, block):
@@ -67,7 +68,7 @@ class AniDBObj(object):
         if not self.db_data:
             self.update(block=True)
         else:
-            age = datetime.datetime.now() - self.db_data.updated
+            age = datetime.datetime.now(self._timezone) - self.db_data.updated
             ref = datetime.timedelta()
             # never update twice the same day...
             if age < datetime.timedelta(days=1):
@@ -153,7 +154,7 @@ class Anime(AniDBObj):
         self._get_db_data()
 
     def _extra_refresh_probability(self):
-        now = datetime.datetime.now()
+        now = datetime.datetime.now(self._timezone)
         ref = datetime.timedelta()
         # The shorter time there is between when anidb updated this
         # anime and we fetched our data, the more likely is it that it has
@@ -208,7 +209,7 @@ class Anime(AniDBObj):
         if self.db_data:
             self.db_data = sess.merge(self.db_data)
             self.db_data.update(**ainfo)
-            self.db_data.updated = datetime.datetime.now()
+            self.db_data.updated = datetime.datetime.now(self._timezone)
             new_relations = []
             for r in relations:
                 found = False
@@ -227,7 +228,7 @@ class Anime(AniDBObj):
             self.db_data.relations = new_relations
         else:
             new = AnimeTable(**ainfo)
-            new.updated = datetime.datetime.now()
+            new.updated = datetime.datetime.now(self._timezone)
             new.relations = relations
             # commit to sql database
             sess.add(new)
@@ -376,10 +377,10 @@ class Episode(AniDBObj):
         if self.db_data:
             self.db_data = sess.merge(self.db_data)
             self.db_data.update(**einfo)
-            self.db_data.updated = datetime.datetime.now()
+            self.db_data.updated = datetime.datetime.now(self._timezone)
         else:
             new = EpisodeTable(**einfo)
-            new.updated = datetime.datetime.now()
+            new.updated = datetime.datetime.now(self._timezone)
             sess.add(new)
 
         if new:
@@ -710,10 +711,10 @@ class File(AniDBObj):
         if self.db_data:
             self.db_data = sess.merge(self.db_data)
             self.db_data.update(**finfo)
-            self.db_data.updated = datetime.datetime.now()
+            self.db_data.updated = datetime.datetime.now(self._timezone)
         else:
             new = FileTable(**finfo)
-            new.updated = datetime.datetime.now()
+            new.updated = datetime.datetime.now(self._timezone)
             sess.add(new)
 
         if new:
@@ -759,11 +760,11 @@ class File(AniDBObj):
             res = sess.query(FileTable).filter_by(lid=finfo['lid']).all()
             if not res:
                 new = FileTable(**finfo)
-                new.updated = datetime.datetime.now()
+                new.updated = datetime.datetime.now(self._timezone)
                 sess.add(new)
             else:
                 obj = res[0]
-                obj.updated = datetime.datetime.now()
+                obj.updated = datetime.datetime.now(self._timezone)
                 obj.update(**finfo)
             self._db_commit(sess)
             self._close_db_session(sess)
@@ -786,10 +787,10 @@ class File(AniDBObj):
             adbb.log.debug("New mylist info: {}".format(finfo))
             self.db_data = sess.merge(self.db_data)
             self.db_data.update(**finfo)
-            self.db_data.updated = datetime.datetime.now()
+            self.db_data.updated = datetime.datetime.now(self._timezone)
         else:
             new = FileTable(**finfo)
-            new.updated = datetime.datetime.now()
+            new.updated = datetime.datetime.now(self._timezone)
             adbb.log.debug("Adding mylist info: {}".format(finfo))
             sess.add(new)
 
@@ -1015,7 +1016,7 @@ class File(AniDBObj):
                 if isinstance(watched, datetime.datetime):
                     self.db_data.mylist_viewdate = watched
                 else:
-                    self.db_data.mylist_viewdate = datetime.datetime.now()
+                    self.db_data.mylist_viewdate = datetime.datetime.now(self._timezone)
             if source:
                 self.db_data.mylist_source = source
             if other:
@@ -1206,7 +1207,7 @@ class Group(AniDBObj):
                 new = GroupTable(
                         name=self._name, 
                         short=self._name,
-                        updated = datetime.datetime.now()
+                        updated = datetime.datetime.now(self._timezone)
                         )
                 sess.add(new)
         else:
@@ -1227,7 +1228,7 @@ class Group(AniDBObj):
         if self.db_data:
             self.db_data = sess.merge(self.db_data)
             self.db_data.update(**ginfo)
-            self.db_data.updated = datetime.datetime.now()
+            self.db_data.updated = datetime.datetime.now(self._timezone)
             new_relations = []
             for r in ginfo['relations']:
                 found = False
@@ -1246,7 +1247,7 @@ class Group(AniDBObj):
             self.db_data.relations = new_relations
         else:
             new = GroupTable(**ginfo)
-            new.updated = datetime.datetime.now()
+            new.updated = datetime.datetime.now(self._timezone)
             sess.add(new)
             self.db_data = new
 
