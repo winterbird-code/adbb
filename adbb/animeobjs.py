@@ -586,14 +586,6 @@ class File(AniDBObj):
                 self._multiep = [episode]
         self._get_db_data()
 
-    def _extra_refresh_probability(self):
-        probability = 0
-        # For files, add 1% probability if it is a generic file that is in
-        # mylist.
-        if self._is_generic and self.db_data.mylist_state:
-            probability = 1
-        return max(probability, 0)
-
     def _get_db_data(self):
         sess = self._get_db_session()
         res = None
