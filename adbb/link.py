@@ -256,7 +256,10 @@ class AniDBListener(threading.Thread):
             if not resp:
                 raise AniDBPacketCorruptedError("Either decrypting, decompressing or parsing the packet failed")
             if resp.restag:
-                cmd = self.cmd_queue.pop(resp.restag)
+                if resp.restag in self.cmd_queue:
+                    cmd = self.cmd_queue.pop(resp.restag)
+                else:
+                    continue
             else:
                 # No responsetag... we're probably banned
                 adbb.log.critical("We've been banned from the anidb UDP API: {}".format(repr(data)))
