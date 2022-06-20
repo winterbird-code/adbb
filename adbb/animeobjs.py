@@ -961,10 +961,11 @@ class File(AniDBObj):
             res = sess.query(FileTable).filter_by(eid=self.episode.eid).all()
             self._db_commit(sess)
             self._close_db_session(sess)
-            mylist_entry = [x for x in res if x.lid]
-            if mylist_entry:
-                other_file = File(lid=mylist_entry.lid)
-                other_file.remove_from_mylist()
+            mylist_entries = [x for x in res if x.lid]
+            if mylist_entries:
+                for entry in mylist_entries:
+                    other_file = File(lid=entry.lid)
+                    other_file.remove_from_mylist()
             else:
                 # Nothing in local database; ask the API
                 other_file = File(anime=self.anime, episode=self.episode)
