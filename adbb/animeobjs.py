@@ -955,12 +955,23 @@ class File(AniDBObj):
             viewed = None
 
         # Make sure this episode isn't already in mylist
-        print(self.lid)
         if not self.lid:
-            other_file = File(anime=self.anime, episode=self.episode)
-            print(other_file.lid)
-            if other_file.lid:
+            # avoid a lookup call if we have a file in our database
+            sess = self._get_db_session()
+            res = sess.query(FileTable).filter_by(eid=self.episode.eid).all()
+            self._db_commit(sess)
+            self._close_db_session(sess)
+            mylist_entry = [x for x in res if x.lid]
+            if mylist_entry:
+                other_file = File(lid=mylist_entry.lid)
                 other_file.remove_from_mylist()
+            else:
+                # Nothing in local database; ask the API
+                other_file = File(anime=self.anime, episode=self.episode)
+                if other_file.lid:
+                    other_file.remove_from_mylist()
+
+
         if self.lid:
             edit = True
             req = MyListAddCommand(
