@@ -333,10 +333,10 @@ class Episode(AniDBObj):
 
     def _extra_refresh_probability(self):
         probability = 0
-        # For episdes, add 50% probability if the episode name is 
+        # For episdes, add 10% probability if the episode name is 
         # "Episode <epnr>"
         if re.match("Episode {}".format(self.db_data.epno), self.db_data.title_eng):
-            probability = 50
+            probability = 10
         return max(probability, 0)
 
     def _get_db_data(self):
