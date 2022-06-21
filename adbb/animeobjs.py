@@ -160,7 +160,7 @@ class Anime(AniDBObj):
         # anime and we fetched our data, the more likely is it that it has
         # changed again. So we start at 60%, and removes 20% for each week
         probability = 60
-        data_age = self.db_data.updated - self.db_data.anidb_updated
+        data_age = self.db_data.updated - self.db_data.anidb_updated.replace(tzinfo=self._timezone)
         while probability > 0:
             data_age -= datetime.timedelta(weeks=1)
             if data_age < ref:
