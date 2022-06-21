@@ -285,7 +285,6 @@ class AniDBListener(threading.Thread):
 
     def _handle_timeouts(self):
         willpop = []
-        adbb.log.debug("Timeout; commands in queue: {}".format(self.cmd_queue))
         cmd = None
         for tag, cmd in self.cmd_queue.items():
             if not tag:
