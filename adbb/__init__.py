@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with adbb.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
 import multiprocessing
 import netrc
 import logging
@@ -40,8 +41,8 @@ _sessionmaker = None
 
 def init(
         sql_db_url,
-        anidb_user=None,
-        anidb_pwd=None,
+        api_user=None,
+        api_pass=None,
         debug=False,
         loglevel='info',
         logger=None,
@@ -91,20 +92,20 @@ def init(
     _sessionmaker = adbb.db.init_db(sql_db_url)
 
     # unless both username and password is given; look for credentials in netrc
-    if not (anidb_user and anidb_pwd):
+    if not (api_user and api_pass):
         for host in ['api.anidb.net', 'api.anidb.info', 'anidb.net']:
             try:
                 username, _account, password = nrc.authenticators(host)
             except TypeError:
                 pass
             if username and password:
-                anidb_user = username
-                anidb_pwd = password
+                api_user = username
+                api_pass = password
                 break
 
     _anidb = adbb.link.AniDBLink(
-        anidb_user,
-        anidb_pwd,
+        api_user,
+        api_pass,
         myport=outgoing_udp_port)
 
 
