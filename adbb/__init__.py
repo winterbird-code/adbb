@@ -69,30 +69,36 @@ def init(
     global log, _anidb, _sessionmaker
     log = logger
 
-    nrc = netrc.netrc(netrc_file)
+    try:
+        nrc = netrc.netrc(netrc_file)
+    except FileNotFoundError:
+        nrc = None
 
-    # if no password is given in sql-url we try to look it up
-    # in netrc
-    parts=sql_db_url.split('/')
-    if parts[2] and not ':' in parts[2]:
-        if '@' in hostpart:
-            username, host = parts[2].split('@')
-        else:
-            username, host = (None, parts[2])
-        try:
-            u, _account, password = nrc.authenticators(host)
-        except TypeError:
-            u, password = (None, None)
-        if password:
-            if not username:
-                username = u
-            if username == u:
-                hostpart[2] = f'{username}:{password}@{host}'
-    sql_db_url='/'.join(parts)
+    if nrc:
+        # if no password is given in sql-url we try to look it up
+        # in netrc
+        parts=sql_db_url.split('/')
+        if parts[2] and not ':' in parts[2]:
+            if '@' in hostpart:
+                username, host = parts[2].split('@')
+            else:
+                username, host = (None, parts[2])
+            try:
+                u, _account, password = nrc.authenticators(host)
+            except TypeError:
+                u, password = (None, None)
+            if password:
+                if not username:
+                    username = u
+                if username == u:
+                    hostpart[2] = f'{username}:{password}@{host}'
+        sql_db_url='/'.join(parts)
     _sessionmaker = adbb.db.init_db(sql_db_url)
 
     # unless both username and password is given; look for credentials in netrc
     if not (api_user and api_pass):
+        if not nrc:
+            raise Exception("User and passwords are required if no netrc file exists")
         for host in ['api.anidb.net', 'api.anidb.info', 'anidb.net']:
             try:
                 username, _account, password = nrc.authenticators(host)
