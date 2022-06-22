@@ -22,4 +22,10 @@ setup(
         packages=['adbb'],
         package_data = {
             'adbb': ['*.txt']
-            })
+            },
+        entry_points={
+            'console_scripts': [
+                'arrange_anime=adbb.examples.arrange_anime:main'
+                ]
+            }
+        )
