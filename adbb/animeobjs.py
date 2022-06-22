@@ -344,9 +344,9 @@ class Episode(AniDBObj):
         if self._eid:
             res = sess.query(EpisodeTable).filter_by(eid=self._eid).all()
         else:
-            res = sess.query(EpisodeTable).filter_by(
-                aid=self._anime.aid,
-                epno=self.episode_number).all()
+            res = sess.query(EpisodeTable).filter(
+                Episode.aid==self._anime.aid,
+                Episode.epno.ilike(self.episode_number)).all()
         if len(res) > 0:
             self.db_data = res[0]
             adbb.log.debug("Found db_data for episode: {}".format(self.db_data))
