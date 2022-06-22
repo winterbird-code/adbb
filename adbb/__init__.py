@@ -19,6 +19,7 @@ import multiprocessing
 import logging
 import logging.handlers
 import sys
+import random
 
 import adbb.db
 from adbb.link import AniDBLink
@@ -43,7 +44,7 @@ def init(
         debug=False,
         loglevel='info',
         logger=None,
-        outgoing_udp_port=9876):
+        outgoing_udp_port=random.randrange(9000, 10000)):
 
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -54,7 +55,10 @@ def init(
             lh.setFormatter(logging.Formatter(
                 '%(asctime)s %(levelname)s %(filename)s:%(lineno)d - %(message)s'))
             logger.addHandler(lh)
-        lh = logging.handlers.SysLogHandler(address='/dev/log')
+        if os.path.exists('/dev/log'):
+            lh = logging.handlers.SysLogHandler(address='/dev/log')
+        else:
+            lh = logging.handlers.SysLogHandler()
         lh.setFormatter(logging.Formatter(
             'adbb %(filename)s/%(funcName)s:%(lineno)d - %(message)s'))
         logger.addHandler(lh)
