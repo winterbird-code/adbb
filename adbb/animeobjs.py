@@ -1123,7 +1123,7 @@ class File(AniDBObj):
                     adbb.log.warning("Got non-numeric episode number when searching '{}' with regex '{}'".format(
                         filename, regex))
                     continue
-                if res.group(1).lower() == 's':
+                if res.group(1).lower() in ('s', "0", "00"):
                     ret.append("S{}".format(ep))
                 elif res.group(1).lower() == 'o':
                     ret.append("C{}".format(ep))
