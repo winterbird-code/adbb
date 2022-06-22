@@ -51,6 +51,10 @@ def get_args():
             default=f'sqlite:///{os.path.expanduser("~/.adbb.db")}'
             )
     parser.add_argument(
+            '-a', '--authfile',
+            help="Authfile (.netrc-file) for credentials"
+            )
+    parser.add_argument(
             "path",
             help="Directory containing episodes",
             )
@@ -76,7 +80,7 @@ def main():
         check_files = [args.path]
 
 
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug)
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
     for f in check_files:
         epfile = adbb.File(path=f)
         if epfile.group:
