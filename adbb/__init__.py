@@ -16,6 +16,7 @@
 # along with adbb.  If not, see <http://www.gnu.org/licenses/>.
 
 import multiprocessing
+import netrc
 import logging
 import logging.handlers
 import sys
@@ -38,12 +39,13 @@ _sessionmaker = None
 
 
 def init(
-        anidb_user,
-        anidb_pwd,
         sql_db_url,
+        anidb_user=None,
+        anidb_pwd=None,
         debug=False,
         loglevel='info',
         logger=None,
+        netrc_file=None,
         outgoing_udp_port=random.randrange(9000, 10000)):
 
     if logger is None:
@@ -65,7 +67,41 @@ def init(
 
     global log, _anidb, _sessionmaker
     log = logger
+
+    nrc = netrc.netrc(netrc_file)
+
+    # if no password is given in sql-url we try to look it up
+    # in netrc
+    parts=sql_db_url.split('/')
+    if parts[2] and not ':' in parts[2]:
+        if '@' in hostpart:
+            username, host = parts[2].split('@')
+        else:
+            username, host = (None, parts[2])
+        try:
+            u, _account, password = nrc.authenticators(host)
+        except TypeError:
+            u, password = (None, None)
+        if password:
+            if not username:
+                username = u
+            if username == u:
+                hostpart[2] = f'{username}:{password}@{host}'
+    sql_db_url='/'.join(parts)
     _sessionmaker = adbb.db.init_db(sql_db_url)
+
+    # unless both username and password is given; look for credentials in netrc
+    if not (anidb_user and anidb_pwd):
+        for host in ['api.anidb.net', 'api.anidb.info', 'anidb.net']:
+            try:
+                username, _account, password = nrc.authenticators(host)
+            except TypeError:
+                pass
+            if username and password:
+                anidb_user = username
+                anidb_pwd = password
+                break
+
     _anidb = adbb.link.AniDBLink(
         anidb_user,
         anidb_pwd,
