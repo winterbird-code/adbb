@@ -33,7 +33,7 @@ class AniDBLink(threading.Thread):
                     user,
                     pwd,
                     #host='localhost',
-                    host='api.anidb.info',
+                    host='api.anidb.net',
                     port=9000,
                     myport=9876,
                     nat_ping_interval=600,
