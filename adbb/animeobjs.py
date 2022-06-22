@@ -32,6 +32,7 @@ from adbb.commands import *
 from adbb.errors import *
 
 
+
 class AniDBObj(object):
     def __init__(self):
         self._anidb_link = adbb._anidb
@@ -40,6 +41,11 @@ class AniDBObj(object):
         self._updating = threading.Lock()
         self._timezone = datetime.timezone(datetime.timedelta(hours=0))
         self.db_data = None
+
+    def _to_timezoneaware(self, obj):
+        if obj.tzinfo == None or obj.tzinfo.utcoffset(obj) == None:
+            return obj.replace(tzinfo=self._timezone)
+        return obj
 
     def _fetch_anidb_data(self, block):
         adbb.log.debug("Seding anidb request for {}".format(self))
@@ -68,7 +74,7 @@ class AniDBObj(object):
         if not self.db_data:
             self.update(block=True)
         else:
-            age = datetime.datetime.now(self._timezone) - self.db_data.updated
+            age = datetime.datetime.now(self._timezone) - self._to_timezoneaware(self.db_data.updated)
             ref = datetime.timedelta()
             # never update twice the same day...
             if age < datetime.timedelta(days=1):
@@ -160,7 +166,7 @@ class Anime(AniDBObj):
         # anime and we fetched our data, the more likely is it that it has
         # changed again. So we start at 60%, and removes 20% for each week
         probability = 60
-        data_age = self.db_data.updated - self.db_data.anidb_updated.replace(tzinfo=self._timezone)
+        data_age = self._to_timezoneaware(self.db_data.updated) - self.db_data.anidb_updated.replace(tzinfo=self._timezone)
         while probability > 0:
             data_age -= datetime.timedelta(weeks=1)
             if data_age < ref:
@@ -345,8 +351,8 @@ class Episode(AniDBObj):
             res = sess.query(EpisodeTable).filter_by(eid=self._eid).all()
         else:
             res = sess.query(EpisodeTable).filter(
-                Episode.aid==self._anime.aid,
-                Episode.epno.ilike(self.episode_number)).all()
+                EpisodeTable.aid==self._anime.aid,
+                EpisodeTable.epno.ilike(self.episode_number)).all()
         if len(res) > 0:
             self.db_data = res[0]
             adbb.log.debug("Found db_data for episode: {}".format(self.db_data))
