@@ -79,7 +79,7 @@ def init(
         # in netrc
         parts=sql_db_url.split('/')
         if parts[2] and not ':' in parts[2]:
-            if '@' in hostpart:
+            if '@' in parts[2]:
                 username, host = parts[2].split('@')
             else:
                 username, host = (None, parts[2])
@@ -91,7 +91,7 @@ def init(
                 if not username:
                     username = u
                 if username == u:
-                    hostpart[2] = f'{username}:{password}@{host}'
+                    parts[2] = f'{username}:{password}@{host}'
         sql_db_url='/'.join(parts)
     _sessionmaker = adbb.db.init_db(sql_db_url)
 
