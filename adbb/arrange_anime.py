@@ -124,8 +124,8 @@ def main():
                 title = f' - {epfile.episode.title_romaji}'.replace('/', '_')
             elif epfile.episode.title_kanji:
                 title = f' - {epfile.episode.title_kanji}'.replace('/', '_')
-            elif epfile.episode.title_eng and not re.match(RE_DEFAULT_EPNAME):
-                title = f' - {epfile.episode.title_kanji}'.replace('/', '_')
+            elif epfile.episode.title_eng and not re.match(RE_DEFAULT_EPNAME, epfile.episode.title_eng):
+                title = f' - {epfile.episode.title_eng}'.replace('/', '_')
             else:
                 title = ''
 
@@ -151,7 +151,10 @@ def main():
                 subdir = 'Movies'
             else:
                 subdir = 'Series'
-            newname = os.path.join(args.target, subdir, epfile.anime.title, newname)
+            anime_dirname = epfile.anime.title.replace('/', '_')
+            if anime_dirname[0] == '.':
+                anime_dirname = anime_dirname[1:]
+            newname = os.path.join(args.target, subdir, anime_dirname, newname)
 
         # check if file is already properly named and in the right place
         if f != newname:
