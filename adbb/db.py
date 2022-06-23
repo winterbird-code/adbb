@@ -135,9 +135,9 @@ class EpisodeTable(Base):
     rating = Column(Float, nullable=True)
     votes = Column(Integer, nullable=False)
     epno = Column(String(8), nullable=False)
-    title_eng = Column(String(256), nullable=True)
-    title_romaji = Column(String(256), nullable=True)
-    title_kanji = Column(Unicode(256), nullable=True)
+    title_eng = Column(String(512), nullable=True)
+    title_romaji = Column(String(512), nullable=True)
+    title_kanji = Column(Unicode(512), nullable=True)
     aired = Column(Date(), nullable=True)
     type = Column(
         Enum(
