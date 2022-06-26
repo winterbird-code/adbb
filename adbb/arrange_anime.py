@@ -22,7 +22,7 @@ RE_GROUP_START = re.compile(r'^[\(\[]([^\d\]\)]+)[\)\]].*')
 RE_GROUP_END = re.compile(r'.*[\(\[]([^\d\]\)]+)[\)\]]\.\w{3,4}$')
 
 # matches anidb's default english episode names
-RE_DEFAULT_EPNAME = re.compile(r'Episode \d+', re.I)
+RE_DEFAULT_EPNAME = re.compile(r'Episode S?\d+', re.I)
 
 
 def get_args():
