@@ -129,13 +129,6 @@ def main():
             else:
                 title = ''
 
-            # check if file contains multiple episodes
-            if len(epfile.multiep) > 1:
-                mi = int(epfile.multiep[0].strip('SCT'))
-                ma = int(epfile.multiep[-1].strip('SCT'))
-                epstr = f'{mi:0{epnr_minlen}d}-{ma:0{epnr_minlen}d}'
-            else:
-                epstr = f'{int(epfile.multiep[0].strip("SCT")):0{epnr_minlen}d}'
             try:
                 # regular episodes converts nicely to integers...
                 int(epfile.multiep[0])
@@ -143,6 +136,15 @@ def main():
             except ValueError:
                 # ... while specials doesn't (contains characters in episode number)
                 season='0'
+                epnr_minlen = len(str(epfile.anime.special_ep_count))
+
+            # check if file contains multiple episodes
+            if len(epfile.multiep) > 1:
+                mi = int(epfile.multiep[0].strip('SCT'))
+                ma = int(epfile.multiep[-1].strip('SCT'))
+                epstr = f'{mi:0{epnr_minlen}d}-{ma:0{epnr_minlen}d}'
+            else:
+                epstr = f'{int(epfile.multiep[0].strip("SCT")):0{epnr_minlen}d}'
 
             newname = f'[{group}] {epfile.anime.title} S{season}E{epstr}{title}.{ext}'
 
