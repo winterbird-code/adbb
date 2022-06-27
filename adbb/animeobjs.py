@@ -645,13 +645,6 @@ class File(AniDBObj):
                 finfo['aid'] = anime.aid
                 finfo['eid'] = episodes[0].eid
                 finfo['is_generic'] = self._is_generic
-            else:
-                sess = self._get_db_session()
-                self.db_data.updated = datetime.datetime.now(self._timezone)
-                self._db_commit(sess)
-                self._close_db_session(sess)
-                self._file_updated.set()
-                return
         else: 
             finfo = res.datalines[0]
             state = None
@@ -722,6 +715,7 @@ class File(AniDBObj):
         sess = self._get_db_session()
         if self.db_data:
             self.db_data = sess.merge(self.db_data)
+            adbb.log.debug('{}: update {}'.format(self, finfo))
             self.db_data.update(**finfo)
             self.db_data.updated = datetime.datetime.now(self._timezone)
         else:
