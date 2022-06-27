@@ -646,6 +646,7 @@ class File(AniDBObj):
                 finfo['eid'] = episodes[0].eid
                 finfo['is_generic'] = self._is_generic
             else:
+                self._file_updated.set()
                 return
         else: 
             finfo = res.datalines[0]
