@@ -289,6 +289,7 @@ class GroupRelationTable(Base):
             'now known as',
             'other',
             'includes',
+            'formerly',
             name='group_relation_type_enum'),
         nullable=False)
 

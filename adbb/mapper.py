@@ -156,6 +156,7 @@ group_relation_map = {
     '5': 'now known as',
     '6': 'other',
     '101': 'includes',
+    '105': 'formerly'
 }
 
 anime_map_a = ['aid', 'unused', 'year', 'type', 'related_aid_list', 'related_aid_type', 'retired', 'retired',
