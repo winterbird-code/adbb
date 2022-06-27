@@ -646,6 +646,10 @@ class File(AniDBObj):
                 finfo['eid'] = episodes[0].eid
                 finfo['is_generic'] = self._is_generic
             else:
+                sess = self._get_db_session()
+                self.db_data.updated = datetime.datetime.now(self._timezone)
+                self._db_commit(sess)
+                self._close_db_session(sess)
                 self._file_updated.set()
                 return
         else: 
