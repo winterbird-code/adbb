@@ -611,10 +611,6 @@ class File(AniDBObj):
                 res = sess.query(FileTable).filter_by(
                         size=self._size,
                         ed2khash=self.ed2khash).all()
-                if res:
-                    res[0].path = self._path
-                    sess.merge(res[0])
-                    self._db_commit(sess)
         elif self._episode.eid:
             res = sess.query(FileTable).filter_by(
                 aid=self._anime.aid,
@@ -622,6 +618,10 @@ class File(AniDBObj):
             if res and len(res) > 0:
                 res = [x for x in res if x.lid]
         if res and len(res) > 0:
+            if self._path != res[0].path:
+                res[0].path = self._path
+                sess.merge(res[0])
+                self._db_commit(sess)
             self.db_data = res[0]
             adbb.log.debug("Found db_data for file: {}".format(self.db_data))
         self._close_db_session(sess)
@@ -630,6 +630,7 @@ class File(AniDBObj):
         new = None
         update_mylist = False
         finfo = {}
+        adbb.log.debug("Response from anidb about file {}".format(self))
         if res.rescode in ('340', '320'):
             adbb.log.debug('{} is not present in AniDB'.format(self))
             if not self.db_data:
@@ -648,6 +649,7 @@ class File(AniDBObj):
         else: 
             finfo = res.datalines[0]
             state = None
+            adbb.log.debug("{} is in anidb".format(self))
 
             # if this file previously was generic, the file has probably been
             # added to anidb. We should remove any generic file from mylist and
@@ -660,7 +662,8 @@ class File(AniDBObj):
             if 'state' in finfo:
                 state = int(finfo['state'])
                 del finfo['state']
-
+            
+            adbb.log.debug("adding attrs to object")
             for attr, data in finfo.items():
                 if attr in adbb.mapper.file_map_f_converters:
                     finfo[attr] = adbb.mapper.file_map_f_converters[attr](data)
@@ -712,6 +715,7 @@ class File(AniDBObj):
             finfo['lid'] = None
             self.remove_from_mylist()
 
+        adbb.log.debug("fetching a db session to update {}".format(self))
         sess = self._get_db_session()
         if self.db_data:
             self.db_data = sess.merge(self.db_data)
