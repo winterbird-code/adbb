@@ -624,6 +624,7 @@ class File(AniDBObj):
                 self._db_commit(sess)
             self.db_data = res[0]
             adbb.log.debug("Found db_data for file: {}".format(self.db_data))
+            self._is_generic = self.db_data.is_generic
         self._close_db_session(sess)
 
     def _anidb_file_data_callback(self, res):
@@ -654,7 +655,7 @@ class File(AniDBObj):
             # if this file previously was generic, the file has probably been
             # added to anidb. We should remove any generic file from mylist and
             # add this instead.
-            if self.db_data and self._is_generic:
+            if self.db_data and self.db_data.is_generic:
                 update_mylist = True
 
             self._is_generic = False
