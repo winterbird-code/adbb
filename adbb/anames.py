@@ -38,7 +38,7 @@ import adbb.animeobjs
 from adbb.errors import AniDBError, AniDBFileError
 
 _animetitles_useragent="adbb"
-_animetitles_url="http://anidb.net/api/animetitles.xml.gz"
+_animetitles_url="https://anidb.net/api/anime-titles.xml.gz"
 iso_639_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "ISO-639-2_utf-8.txt")
 _update_interval = datetime.timedelta(hours=36)
 
