@@ -172,15 +172,29 @@ def main():
         if f != newname:
             print(f'"{f}" -> "{newname}"')
             if not args.dry_run:
-                d, h = os.path.split(newname)
+                nd, nh = os.path.split(newname)
                 try:
-                    os.mkdir(d)
+                    os.mkdir(nd)
                 except FileExistsError:
                     pass
                 shutil.move(f, newname)
-                d, h = os.path.split(f)
+                od, oh = os.path.split(f)
+                for root, dirs, files in od:
+                    if not files and all([x.lower() in [
+                            'behind the scenes',
+                            'deleted scenes',
+                            'interviews',
+                            'scenes',
+                            'samples',
+                            'shorts',
+                            'featurettes',
+                            'extras',
+                            'trailers' ] for x in dirs]):
+                        for d in dirs:
+                            os.rename(os.path.join(root, d), os.path.join(nd, d))
+                    break
                 try:
-                    os.rmdir(d)
+                    os.rmdir(od)
                 except OSError:
                     pass
                 if not epfile.lid:
