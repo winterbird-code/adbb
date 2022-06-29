@@ -75,6 +75,16 @@ def main():
     if os.path.isdir(args.path):
         check_files = []
         for root, dirs, files in os.walk(args.path):
+            dirs[:] = [d for d in dirs if d.lower() not in [
+                'behind the scenes',
+                'deleted scenes',
+                'interviews',
+                'scenes',
+                'samples',
+                'shorts',
+                'featurettes',
+                'extras',
+                'trailers' ]]
             check_files.extend([ os.path.join(root, x) for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ])
     else:
         check_files = [args.path]
