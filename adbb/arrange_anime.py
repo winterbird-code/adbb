@@ -95,7 +95,7 @@ def main():
         epfile = adbb.File(path=f)
         if epfile.group:
             # replace any / since it's not supported for filenames in *nix
-            group = epfile.group.name.replace('/', '／')
+            group = epfile.group.name.replace('/', '⁄')
         else:
             # if anidb don't know about the group we try to parse the filename
             # look for [] or ()-blocks at start or end of filename, and assume this
@@ -115,7 +115,7 @@ def main():
         # and Luffy)
         epnr_minlen = len(str(max(epfile.anime.highest_episode_number, epfile.anime.nr_of_episodes)))
 
-        aname = epfile.anime.title.replace('/', '／')
+        aname = epfile.anime.title.replace('/', '⁄')
         ext = f.rsplit('.')[-1]
         if epfile.anime.nr_of_episodes == 1:
             # personal definition of movies: exactly 1 (main-)episode.
@@ -131,11 +131,11 @@ def main():
             #
             # If no title was found we do not append it to the filename
             if epfile.episode.title_romaji:
-                title = f' - {epfile.episode.title_romaji}'.replace('/', '／')
+                title = f' - {epfile.episode.title_romaji}'.replace('/', '⁄')
             elif epfile.episode.title_kanji:
-                title = f' - {epfile.episode.title_kanji}'.replace('/', '／')
+                title = f' - {epfile.episode.title_kanji}'.replace('/', '⁄')
             elif epfile.episode.title_eng and not re.match(RE_DEFAULT_EPNAME, epfile.episode.title_eng):
-                title = f' - {epfile.episode.title_eng}'.replace('/', '／')
+                title = f' - {epfile.episode.title_eng}'.replace('/', '⁄')
             else:
                 title = ''
 
@@ -156,14 +156,14 @@ def main():
             else:
                 epstr = f'{int(epfile.multiep[0].strip("SCT")):0{epnr_minlen}d}'
 
-            newname = f'[{group}] {epfile.anime.title} S{season}E{epstr}{title}.{ext}'
+            newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
 
         if args.target:
             if epfile.anime.nr_of_episodes == 1:
                 subdir = 'Movies'
             else:
                 subdir = 'Series'
-            anime_dirname = epfile.anime.title.replace('/', '／')
+            anime_dirname = epfile.anime.title.replace('/', '⁄')
             if anime_dirname[0] == '.':
                 anime_dirname = anime_dirname[1:]
             newname = os.path.join(args.target, subdir, anime_dirname, newname)
