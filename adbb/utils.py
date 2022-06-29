@@ -6,6 +6,7 @@ import shutil
 
 import adbb
 
+# These extensions are considered video types
 SUPPORTED_FILETYPES = [
         'mkv',
         'avi',
@@ -14,6 +15,19 @@ SUPPORTED_FILETYPES = [
         'wmv',
         'm4v',
         'webm',
+        ]
+
+# Specials-directories as defined by jellyfin
+JELLYFIN_SPECIAL_DIRS = [
+        'behind the scenes',
+        'deleted scenes',
+        'interviews',
+        'scenes',
+        'samples',
+        'shorts',
+        'featurettes',
+        'extras',
+        'trailers',
         ]
 
 # matches groupnames from paranthesis at start of filename
@@ -25,7 +39,7 @@ RE_GROUP_END = re.compile(r'.*[\(\[]([^\d\]\)]+)[\)\]]\.\w{3,4}$')
 RE_DEFAULT_EPNAME = re.compile(r'Episode S?\d+', re.I)
 
 
-def get_args():
+def arrange_anime_args():
     parser = argparse.ArgumentParser(description="Rearange video files in directory to jellyfin-parsable anime episodes")
     parser.add_argument(
             '-n', '--dry-run',
@@ -55,43 +69,33 @@ def get_args():
             help="Authfile (.netrc-file) for credentials"
             )
     parser.add_argument(
-            "path",
-            help="Directory containing episodes",
+            "paths",
+            help="Directories containing episodes",
+            nargs="+"
             )
     parser.add_argument(
-            "target",
+            "-t", '--target-dir',
             help="Where to put the stuff after parsing...",
-            nargs='?')
-
-
+            )
     return parser.parse_args()
 
+def create_filelist(paths, recurse=True):
+    files = []
+    for path in paths:
+        # find all files with supported file extensions and add them to
+        # our working list if input is a directory.
+        if os.path.isdir(path):
+            for root, dirs, files in os.walk(path):
+                dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
+                files.extend([ os.path.join(root, x) for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ])
+                if not recurse:
+                    break
+        else:
+            files.append(path)
+    return files
 
-def main():
-    args = get_args()
-
-    # recursively find all files with supported file extensions and add them to
-    # our working list if input is a directory.
-    if os.path.isdir(args.path):
-        check_files = []
-        for root, dirs, files in os.walk(args.path):
-            dirs[:] = [d for d in dirs if d.lower() not in [
-                'behind the scenes',
-                'deleted scenes',
-                'interviews',
-                'scenes',
-                'samples',
-                'shorts',
-                'featurettes',
-                'extras',
-                'trailers' ]]
-            check_files.extend([ os.path.join(root, x) for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ])
-    else:
-        check_files = [args.path]
-
-
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
-    for f in check_files:
+def arrange_files(filelist, target_dir=None, dry_run=False):
+    for f in filelist:
         epfile = adbb.File(path=f)
         if epfile.group:
             # replace any / since it's not supported for filenames in *nix
@@ -158,20 +162,26 @@ def main():
 
             newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
 
-        if args.target:
-            if epfile.anime.nr_of_episodes == 1:
-                subdir = 'Movies'
+        if target_dir:
+            # Escape slash as usual, but for also remove dot-prefixes because
+            # "Hidden" directories are a hastle; sorry .hack//...
+            anime_dirname = epfile.anime.title.replace('/', '⁄').lstrip('.')
+            movie_subdir = 'Movies'
+            series_subdir = 'Series'
+            # If target directory has separate subdirs for movies and series;
+            # place the files there
+            if os.path.isdir(os.path.join(target_dir, movie_subdir)) and epfile.anime.nr_of_episodes == 1:
+                newname = os.path.join(target_dir, movie_subdir, anime_dirname, newname)
+            elif os.path.isdir(os.path.join(target_dir, series_subdir)):
+                newname = os.path.join(target_dir, series_subdir, anime_dirname, newname)
             else:
-                subdir = 'Series'
-            anime_dirname = epfile.anime.title.replace('/', '⁄')
-            if anime_dirname[0] == '.':
-                anime_dirname = anime_dirname[1:]
-            newname = os.path.join(args.target, subdir, anime_dirname, newname)
+                newname = os.path.join(target_dir, anime_dirname, newname)
 
-        # check if file is already properly named and in the right place
+
+        # no action if file is already properly named and in the right place
         if f != newname:
-            print(f'"{f}" -> "{newname}"')
-            if not args.dry_run:
+            adbb.log.info(f'Moving "{f}" -> "{newname}"')
+            if not dry_run:
                 nd, nh = os.path.split(newname)
                 try:
                     os.mkdir(nd)
@@ -179,19 +189,12 @@ def main():
                     pass
                 shutil.move(f, newname)
                 od, oh = os.path.split(f)
+                # Make sure extras-directories are moved if it's all that is
+                # left in the old directory
                 for root, dirs, files in os.walk(od):
-                    if not files and all([x.lower() in [
-                            'behind the scenes',
-                            'deleted scenes',
-                            'interviews',
-                            'scenes',
-                            'samples',
-                            'shorts',
-                            'featurettes',
-                            'extras',
-                            'trailers' ] for x in dirs]):
+                    if not files and all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in dirs]):
                         for d in dirs:
-                            os.rename(os.path.join(root, d), os.path.join(nd, d))
+                            shutil.move(os.path.join(root, d), os.path.join(nd, d))
                     break
                 try:
                     os.rmdir(od)
@@ -199,6 +202,12 @@ def main():
                     pass
                 if not epfile.lid:
                     epfile.update_mylist(watched=False, state='on hdd')
+
+def arrange_anime():
+    args = arrange_anime_args()
+    filelist = create_filelist(args.paths)
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
+    arrange_files(filelist, target_dir=args.target_dir, dry_run=args.dry_run)
     adbb.close()
 
 if __name__ == '__main__':
