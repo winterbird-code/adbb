@@ -80,19 +80,19 @@ def arrange_anime_args():
     return parser.parse_args()
 
 def create_filelist(paths, recurse=True):
-    files = []
+    filelist = []
     for path in paths:
         # find all files with supported file extensions and add them to
         # our working list if input is a directory.
         if os.path.isdir(path):
             for root, dirs, files in os.walk(path):
                 dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
-                files.extend([ os.path.join(root, x) for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ])
+                filelist.extend([ os.path.join(root, x) for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ])
                 if not recurse:
                     break
         else:
-            files.append(path)
-    return files
+            filelist.append(path)
+    return filelist
 
 def arrange_files(filelist, target_dir=None, dry_run=False):
     for f in filelist:
