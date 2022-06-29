@@ -179,7 +179,7 @@ def main():
                     pass
                 shutil.move(f, newname)
                 od, oh = os.path.split(f)
-                for root, dirs, files in od:
+                for root, dirs, files in os.walk(od):
                     if not files and all([x.lower() in [
                             'behind the scenes',
                             'deleted scenes',
