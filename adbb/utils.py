@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import socket
-import urllib.parse
+import urllib
 
 import adbb
 
@@ -284,7 +284,7 @@ def jellyfin_anime_sync():
     args = get_jellyfin_anime_sync_args()
 
     if not args.jellyfin_user or not args.jellyfin_password:
-        parsed_url = urllib.parse(args.jellyfin_url)
+        parsed_url = urllib.parse.urlparse(args.jellyfin_url)
         nrc = netrc.netrc(args.authfile)
         user, _account, password = nrc.authenticators(parsed_url.netloc)
     else:
