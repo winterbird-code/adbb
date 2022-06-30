@@ -290,6 +290,8 @@ def jellyfin_anime_sync():
     else:
         user, password = (args.jellyfin_user, args.jellyfin_password)
 
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
+
     # we actually do not need the jellyfin client that much...
     jf_client = init_jellyfin(args.jellyfin_url, user, password)
     res = jf_client.jellyfin.user_items(params={
@@ -314,7 +316,6 @@ def jellyfin_anime_sync():
                         )
         return False
 
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
     for root, dirs, files in os.walk(args.path):
         dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
         files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
