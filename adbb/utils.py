@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 import socket
-import urllib
+import urllib.parse
 
 import adbb
 
