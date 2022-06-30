@@ -719,6 +719,12 @@ class File(AniDBObj):
             self.remove_from_mylist()
 
         adbb.log.debug("fetching a db session to update {}".format(self))
+        if self.db_data and not self.db_data.aid and not 'aid' in finfo:
+            anime, episodes = self._guess_anime_ep_from_file()
+            finfo['aid'] = anime.aid
+            if not self.db_data.eid and not 'eid' in finfo:
+                finfo['eid'] = episodes[0].eid
+
         sess = self._get_db_session()
         if self.db_data:
             self.db_data = sess.merge(self.db_data)
