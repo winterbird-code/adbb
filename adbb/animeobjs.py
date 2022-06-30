@@ -625,7 +625,7 @@ class File(AniDBObj):
                 res = [x for x in res if x.lid]
         if res and len(res) > 0:
             self.db_data = res[0]
-            if self._path != self.db_data.path
+            if self._path != self.db_data.path:
                 self.db_data.path = self._path
             if not self.db_data.aid or not self.db_data.eid:
                 anime, episodes = self._guess_anime_ep_from_file()
