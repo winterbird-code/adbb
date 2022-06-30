@@ -353,6 +353,8 @@ def jellyfin_anime_sync():
         # During testing... let's do this one directory at a time
         break
 
+    adbb.close()
+
 
 if __name__ == '__main__':
     main()
