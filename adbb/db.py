@@ -290,6 +290,7 @@ class GroupRelationTable(Base):
             'other',
             'includes',
             'formerly',
+            'merged into',
             name='group_relation_type_enum'),
         nullable=False)
 

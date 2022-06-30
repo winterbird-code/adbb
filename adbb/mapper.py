@@ -156,6 +156,7 @@ group_relation_map = {
     '5': 'now known as',
     '6': 'other',
     '101': 'includes',
+    '104': 'merged into',
     '105': 'formerly'
 }
 
