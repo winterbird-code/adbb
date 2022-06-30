@@ -152,6 +152,7 @@ group_map_converters = {
 group_relation_map = {
     '1': 'participant in',
     '2': 'parent of',
+    '3': 'lost part',
     '4': 'merged from',
     '5': 'now known as',
     '6': 'other',
