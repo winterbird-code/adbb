@@ -249,7 +249,7 @@ def get_jellyfin_anime_sync_args():
             help="User to log in to jellyfin"
             )
     parser.add_argument(
-            '-a', '--jellyfin-password',
+            '-w', '--jellyfin-password',
             help="Password for jellyfin user"
             )
     parser.add_argument(
