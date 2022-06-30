@@ -324,11 +324,11 @@ def jellyfin_anime_sync():
         else:
             single_ep = False
         
-        pdir, cdir = os.path.split()
+        pdir, cdir = os.path.split(root)
         while pdir:
             if not re.match(RE_JELLYFIN_SEASON_DIR, pdir):
                 break
-            pdir, cdir = os.path.split()
+            pdir, cdir = os.path.split(pdir)
         
         anime = adbb.Anime(cdir)
         for f in files:
