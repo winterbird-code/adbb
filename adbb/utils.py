@@ -299,6 +299,7 @@ def jellyfin_anime_sync():
             })
     jf_client.stop()
     metadata = { x['Path']: x for x in res['Items'] if x['Path'].startswith(args.path) }
+    addb.log.debug(f"Found {len(metadata)} files in jellyfin")
 
     # search for a file in the metadata dict and return when watched
     # Will return False if not watched or if not in dict
@@ -326,14 +327,16 @@ def jellyfin_anime_sync():
         
         pdir, cdir = os.path.split(root)
         while pdir:
-            if not re.match(RE_JELLYFIN_SEASON_DIR, pdir):
+            if not re.match(RE_JELLYFIN_SEASON_DIR, cdir):
                 break
             pdir, cdir = os.path.split(pdir)
         
+        adbb.log.debug(f"Found {len(files)} files in folder for '{cdir}'")
         anime = adbb.Anime(cdir)
         for f in files:
             fpath = os.path.join(root, f)
             watched = get_watched_for_file(fpath)
+            adbb.log.debug(f"{fpath} watched: {watched}")
             fo = adbb.File(path=fpath, anime=anime, force_single_episode_series=single_ep)
             if not fo.mylist_state or fo.mylist_viewed != bool(watched):
                 for ep in fo.multiep:
