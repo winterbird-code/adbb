@@ -1053,6 +1053,9 @@ class File(AniDBObj):
                     self.db_data.mylist_viewdate = watched
                 else:
                     self.db_data.mylist_viewdate = datetime.datetime.now(self._timezone)
+            else:
+                self.db_data.mylist_viewed = False
+                self.db_data.mylist_viewdate = None
             if source:
                 self.db_data.mylist_source = source
             if other:
