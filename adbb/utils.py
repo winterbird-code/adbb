@@ -259,8 +259,9 @@ def get_jellyfin_anime_sync_args():
             action="store_true"
             )
     parser.add_argument(
-            'path',
-            help="Where the anime is stored"
+            'paths',
+            help="Where the anime is stored",
+            nargs="+"
             )
     return parser.parse_args()
 
@@ -301,7 +302,9 @@ def jellyfin_anime_sync():
             'fields': 'Path',
             })
     jf_client.stop()
-    metadata = { x['Path']: x for x in res['Items'] if x['Path'].startswith(args.path) }
+    metadata = {}
+    for path in args.paths:
+        metadata.update({ x['Path']: x for x in res['Items'] if x['Path'].startswith(path) })
     adbb.log.debug(f"Found {len(metadata)} files in jellyfin")
 
     # search for a file in the metadata dict and return when watched
@@ -317,41 +320,40 @@ def jellyfin_anime_sync():
                         )
         return False
 
-    for root, dirs, files in os.walk(args.path):
-        dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
-        files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
-        if not files:
-            continue
-        if '/Movies/' in root:
-            single_ep = True
-        else:
-            single_ep = False
-        
-        pdir, cdir = os.path.split(root)
-        while pdir:
-            if cdir and not re.match(RE_JELLYFIN_SEASON_DIR, cdir):
-                break
-            pdir, cdir = os.path.split(pdir)
-        
-        adbb.log.debug(f"Found {len(files)} files in folder for '{cdir}'")
-        anime = adbb.Anime(cdir)
-        for f in files:
-            fpath = os.path.join(root, f)
-            watched = get_watched_for_file(fpath)
-            adbb.log.debug(f"{fpath} watched: {watched}")
-            fo = adbb.File(path=fpath, anime=anime, force_single_episode_series=single_ep)
-            if not fo.mylist_state or fo.mylist_viewed != bool(watched):
-                for ep in fo.multiep:
-                    if str(ep).lower() == str(fo.episode.episode_number).lower():
-                        fo.update_mylist(state='on hdd', watched=watched)
-                    else:
-                        mylist_fo = adbb.File(anime=anime, episode=ep)
-                        mylist_fo.update_mylist(state='on hdd', watched=watched)
+    for path in paths:
+        for root, dirs, files in os.walk(path):
+            dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
+            files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
+            if not files:
+                continue
+            if '/Movies/' in root:
+                single_ep = True
+            else:
+                single_ep = False
+            
+            pdir, cdir = os.path.split(root)
+            while pdir:
+                if cdir and not re.match(RE_JELLYFIN_SEASON_DIR, cdir):
+                    break
+                pdir, cdir = os.path.split(pdir)
+            
+            adbb.log.debug(f"Found {len(files)} files in folder for '{cdir}'")
+            anime = adbb.Anime(cdir)
+            for f in files:
+                fpath = os.path.join(root, f)
+                watched = get_watched_for_file(fpath)
+                adbb.log.debug(f"{fpath} watched: {watched}")
+                fo = adbb.File(path=fpath, anime=anime, force_single_episode_series=single_ep)
+                if not fo.mylist_state or fo.mylist_viewed != bool(watched):
+                    for ep in fo.multiep:
+                        if str(ep).lower() == str(fo.episode.episode_number).lower():
+                            fo.update_mylist(state='on hdd', watched=watched)
+                        else:
+                            mylist_fo = adbb.File(anime=anime, episode=ep)
+                            mylist_fo.update_mylist(state='on hdd', watched=watched)
 
-        if args.rearrange:
-            arrange_files([os.path.join(root, f) for f in files], target_dir=pdir)
-        # During testing... let's do this one directory at a time
-        break
+            if args.rearrange:
+                arrange_files([os.path.join(root, f) for f in files], target_dir=pdir)
 
     adbb.close()
 
