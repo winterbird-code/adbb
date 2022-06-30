@@ -702,10 +702,6 @@ class File(AniDBObj):
             finfo['ed2khash'] = self._ed2khash
             finfo['mtime'] = self._mtime
 
-        if 'aid' not in finfo:
-            finfo['aid'] = 0
-        if 'eid' not in finfo:
-            finfo['eid'] = 0
         if 'fid' in finfo:
             self._fid = finfo['fid']
         if 'lid' in finfo:
