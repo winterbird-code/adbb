@@ -630,7 +630,7 @@ class File(AniDBObj):
             if not self.db_data.aid or not self.db_data.eid:
                 anime, episodes = self._guess_anime_ep_from_file()
                 self.db_data.aid = anime.aid
-                self.db_data.eid = episode.eid
+                self.db_data.eid = episodes[0].eid
 
             sess.merge(self.db_data)
             self._db_commit(sess)
