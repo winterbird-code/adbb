@@ -320,7 +320,7 @@ def jellyfin_anime_sync():
                         )
         return False
 
-    for path in paths:
+    for path in args.paths:
         for root, dirs, files in os.walk(path):
             dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
             files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
