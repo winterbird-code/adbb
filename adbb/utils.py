@@ -286,7 +286,7 @@ def jellyfin_anime_sync():
     if not args.jellyfin_user or not args.jellyfin_password:
         parsed_url = urllib.parse.urlparse(args.jellyfin_url)
         nrc = netrc.netrc(args.authfile)
-        user, _account, password = nrc.authenticators(parsed_url.netloc)
+        user, _account, password = nrc.authenticators(parsed_url.hostname)
     else:
         user, password = (args.jellyfin_user, args.jellyfin_password)
 
@@ -328,7 +328,7 @@ def jellyfin_anime_sync():
         
         pdir, cdir = os.path.split(root)
         while pdir:
-            if not re.match(RE_JELLYFIN_SEASON_DIR, cdir):
+            if cdir and not re.match(RE_JELLYFIN_SEASON_DIR, cdir):
                 break
             pdir, cdir = os.path.split(pdir)
         
