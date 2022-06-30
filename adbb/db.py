@@ -293,6 +293,7 @@ class GroupRelationTable(Base):
             'merged into',
             'lost part',
             'split from',
+            'child of',
             name='group_relation_type_enum'),
         nullable=False)
 
