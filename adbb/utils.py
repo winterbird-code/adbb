@@ -1,8 +1,11 @@
 #!/bin/env python3
 import argparse
+import netrc
 import os
 import re
 import shutil
+import socket
+import urllib
 
 import adbb
 
@@ -29,6 +32,8 @@ JELLYFIN_SPECIAL_DIRS = [
         'extras',
         'trailers',
         ]
+
+RE_JELLYFIN_SEASON_DIR = re.compile(r'^Season \d+$', re.I)
 
 # matches groupnames from paranthesis at start of filename
 RE_GROUP_START = re.compile(r'^[\(\[]([^\d\]\)]+)[\)\]].*')
@@ -209,6 +214,141 @@ def arrange_anime():
     adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
     arrange_files(filelist, target_dir=args.target_dir, dry_run=args.dry_run)
     adbb.close()
+
+
+def get_jellyfin_anime_sync_args():
+    parser = argparse.ArgumentParser(description="Sync mylist watched state from jellyfin")
+    parser.add_argument(
+            '-d', '--debug',
+            help='show debug information from adbb',
+            action='store_true'
+            )
+    parser.add_argument(
+            '-u', '--username',
+            help='anidb username',
+            )
+    parser.add_argument(
+            '-p', '--password',
+            help='anidb password'
+            )
+    parser.add_argument(
+            '-s', '--sql-url',
+            help='sqlalchemy compatible sql URL',
+            default=f'sqlite:///{os.path.expanduser("~/.adbb.db")}'
+            )
+    parser.add_argument(
+            '-a', '--authfile',
+            help="Authfile (.netrc-file) for credentials"
+            )
+    parser.add_argument(
+            '-j', '--jellyfin-url',
+            help="URL to jellyfin root"
+            )
+    parser.add_argument(
+            '-e', '--jellyfin-user',
+            help="User to log in to jellyfin"
+            )
+    parser.add_argument(
+            '-a', '--jellyfin-password',
+            help="Password for jellyfin user"
+            )
+    parser.add_argument(
+            '-r', '--rearrange',
+            help="also move files to proper adbb format",
+            action="store_true"
+            )
+    parser.add_argument(
+            'path',
+            help="Where the anime is stored",
+            required=True
+            )
+    return parser.parse_args()
+
+def init_jellyfin(url, user, password):
+    import jellyfin_apiclient_python
+    APP=f"{adbb.anidb_client_name}_jellyfin"
+    VER=adbb.anidb_client_version
+    DEV=adbb.anidb_client_name
+    DEV_ID=socket.gethostname()
+
+    client = jellyfin_apiclient_python.JellyfinClient()
+    client.config.app(APP, VER, DEV, DEV_ID)
+    client.config.auth(url, user, password, True)
+    client.config.http(f"{APP}/{VER}")
+
+    client.auth.connect_to_address(url)
+    client.auth.login(url, user, password)
+    return client
+
+
+def jellyfin_anime_sync():
+    args = get_jellyfin_anime_sync_args()
+
+    if not args.jellyfin_user or not args.jellyfin_password:
+        parsed_url = urllib.parse(args.jellyfin_url)
+        nrc = netrc.netrc(args.authfile)
+        user, _account, password = nrc.authenticators(parsed_url.netloc)
+    else:
+        user, password = (args.jellyfin_user, args.jellyfin_password)
+
+    # we actually do not need the jellyfin client that much...
+    jf_client = init_jellyfin(args.jellyfin_url, user, password)
+    res = jf_client.jellyfin.user_items(params={
+            'recursive': True,
+            'includeItemTypes': ['Episode', 'Movie', 'Video'],
+            'fields': 'Path',
+            })
+    jf_client.stop()
+    metadata = { x['Path']: x for x in res['Items'] if x['Path'].startswith(args.path) }
+
+    # search for a file in the metadata dict and return when watched
+    # Will return False if not watched or if not in dict
+    def get_watched_for_file(path):
+        if path in metadata:
+            if 'LastPlayedDate' in metadata[path]['UserData']:
+                timestr = metadata[path]['UserData']['LastPlayedDate']
+                timestr = timestr[:23] + '+0000'
+                return datetime.datetime.strptime(
+                        timestr,
+                        '%Y-%m-%dT%H:%M:%S.%f%z'
+                        )
+        return False
+
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
+    for root, dirs, files in os.walk(args.path):
+        dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
+        files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
+        if not files:
+            continue
+        if '/Movies/' in root:
+            single_ep = True
+        else:
+            single_ep = False
+        
+        pdir, cdir = os.path.split()
+        while pdir:
+            if not re.match(RE_JELLYFIN_SEASON_DIR, pdir):
+                break
+            pdir, cdir = os.path.split()
+        
+        anime = adbb.Anime(cdir)
+        for f in files:
+            fpath = os.path.join(root, f)
+            watched = get_watched_for_file(fpath)
+            fo = adbb.File(path=fpath, anime=anime, force_single_episode_series=single_ep)
+            if not fo.mylist_state or fo.mylist_viewed != bool(watched):
+                for ep in fo.multiep:
+                    if str(ep).lower() == str(fo.episode.episode_number).lower():
+                        fo.update_mylist(state='on hdd', watched=watched)
+                    else:
+                        mylist_fo = adbb.File(anime=anime, episode=ep)
+                        mylist_fo.update_mylist(state='on hdd', watched=watched)
+
+        if args.rearrange:
+            arrange_files([os.path.join(root, f) for f in files], target_dir=pdir)
+        # During testing... let's do this one directory at a time
+        break
+
 
 if __name__ == '__main__':
     main()
