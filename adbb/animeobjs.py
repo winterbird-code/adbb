@@ -482,10 +482,16 @@ class File(AniDBObj):
         if self._multiep:
             return self._multiep
 
-        # always try to parse filename first
+        if '-' in self.episode.episode_number:
+            start, stop = self.episode.episode_number.split('-')
+            self._multiep = range(int(start), int(stop)+1)
+            return self._multiep
+
         if self.path:
             episodes = self._guess_epno_from_filename(os.path.split(self.path)[1], self.anime)
-            if episodes:
+            # if database says an episode that is not in episodes list assume
+            # name is wrong.
+            if episodes and self.episode.episode_number in episodes:
                 self._multiep = [ ep.episode_number for ep in episodes ]
                 return self._multiep
         self._multiep = [self.episode.episode_number]
