@@ -310,7 +310,7 @@ def jellyfin_anime_sync():
         if path in metadata:
             if 'LastPlayedDate' in metadata[path]['UserData']:
                 timestr = metadata[path]['UserData']['LastPlayedDate']
-                timestr = timestr[:23] + '+0000'
+                timestr = timestr = f"{timestr[:23].strip('Z'):0<23}+0000"
                 return datetime.datetime.strptime(
                         timestr,
                         '%Y-%m-%dT%H:%M:%S.%f%z'
