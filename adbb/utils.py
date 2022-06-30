@@ -259,8 +259,7 @@ def get_jellyfin_anime_sync_args():
             )
     parser.add_argument(
             'path',
-            help="Where the anime is stored",
-            required=True
+            help="Where the anime is stored"
             )
     return parser.parse_args()
 
