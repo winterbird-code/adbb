@@ -1162,8 +1162,6 @@ class File(AniDBObj):
                     ret.append("T{}".format(ep))
                 else:
                     ret.append(str(ep))
-            adbb.log.debug("file '{}': looks like episode(s) {}".format(
-                filename, ret))
         return ret
 
     def _guess_epno_from_filename(self, filename, anime):
@@ -1205,6 +1203,7 @@ class File(AniDBObj):
                 ret = [ str(x) for x in range(mi, ma+1) ]
             except ValueError:
                 pass
+        adbb.log.debug("file '{}': looks like episode(s) {}".format(filename, ret))
         return [Episode(anime=anime, epno=e) for e in ret]
 
     def __eq__(self, other):
