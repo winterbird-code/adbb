@@ -1168,7 +1168,7 @@ class File(AniDBObj):
                         continue
                 if res.group(1).lower() in ('s', "0", "00"):
                     ret.append("S{}".format(ep))
-                if res.group(1).lower() == 'p':
+                elif res.group(1).lower() == 'p':
                     ret.append(f"P{ep}")
                 elif res.group(1).lower() == 'o':
                     ret.append("C{}".format(ep))

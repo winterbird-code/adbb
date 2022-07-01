@@ -157,7 +157,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             m = re.match(adbb.fileinfo.specials_re, epfile.multiep[0])
             if m:
                 epnr_minlen = len(str(epfile.anime.special_ep_count))
-                if m.group(1).upper == 'S':
+                if m.group(1).upper() == 'S':
                     season='0'
                 else:
                     is_extra=True
