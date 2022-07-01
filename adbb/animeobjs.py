@@ -1218,11 +1218,11 @@ class File(AniDBObj):
             if not ret:
                 adbb.log.debug("file '{}': could not figure out episode number(s)".format(filename))
                 return []
-        m = re.match(adbb.fileinfo.specials_re(ret[0]))
+        m = re.match(adbb.fileinfo.specials_re, ret[0])
         if len(ret) == 2:
             if m:
                 mi = int(m.group(2))
-                m = re.match(adbb.fileinfo.specials_re(ret[1]))
+                m = re.match(adbb.fileinfo.specials_re, ret[1])
                 ma = int(m.group(2))
                 ret = [ f"{m.group(1).upper()}{x}" for x in range(mi, ma+1) ]
             else:
