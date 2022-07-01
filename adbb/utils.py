@@ -136,7 +136,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
 
             # But wait, what if this is just a part of the movie?
             if epfile.part:
-                newname = f'{aname} Part {epfile.part} [{group}].{ext}'
+                newname = f'{aname} [{group}]-part{epfile.part}.{ext}'
         else:
             # Use the first found of these titles:
             # * romanji
