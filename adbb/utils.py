@@ -202,14 +202,22 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             if not dry_run:
                 nd, nh = os.path.split(newname)
                 os.makedirs(nd, exist_ok=True)
-                shutil.move(f, newname)
+                try:
+                    shutil.move(f, newname)
+                except OSError:
+                    shutil.copy2(f, newname)
+                    os.remove(f)
                 od, oh = os.path.split(f)
                 # Make sure extras-directories are moved if it's all that is
                 # left in the old directory
                 for root, dirs, files in os.walk(od):
                     if not files and all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in dirs]):
                         for d in dirs:
-                            shutil.move(os.path.join(root, d), os.path.join(nd, d))
+                            try:
+                                shutil.move(os.path.join(root, d), os.path.join(nd, d))
+                            except OSError:
+                                shutil.copytree(os.path.join(root, d), os.path.join(nd, d))
+                                shutil.rmtree(os.path.join(root, d))
                     break
                 try:
                     os.rmdir(od)
