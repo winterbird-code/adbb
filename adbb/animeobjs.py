@@ -481,7 +481,7 @@ class File(AniDBObj):
             f = os.path.basename(self._path)
             part_regex = [x for x in adbb.finfo.ep_nr_re if r'(p)' in x]
             for r in part_regex:
-                m = re.match(r, f)
+                m = re.search(r, f)
                 if m:
                     break
             if m:
