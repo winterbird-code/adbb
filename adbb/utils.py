@@ -197,7 +197,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
         # no action if file is already properly named and in the right place
         if f != newname:
             if os.path.exists(newname):
-                adbb.log.error('Not moving "{f}" because file "{newname}" already exists')
+                adbb.log.error(f'Not moving "{f}" because file "{newname}" already exists')
                 break
             adbb.log.info(f'Moving "{f}" -> "{newname}"')
             if not dry_run:
