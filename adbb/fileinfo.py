@@ -49,7 +49,7 @@ ep_nr_re = [
     # "others"-type not implemented for now...
     re.compile(r'[/\._ \-]()([0-9]{1,4})([._ 0-9-]*)', re.I)  # if everything else fails, just match the first number(s)
 ]
-partfile_re = re.compile(r'[/\._ \-](p)(?:ar)t[/\._ \-]{0,3}([0-9ivx]+)', re.I),  # part-file, not complete episode/movie
+partfile_re = re.compile(r'[/\._ \-](p)(?:ar)t[/\._ \-]{0,3}([0-9ivx]+)', re.I)  # part-file, not complete episode/movie
 multiep_re = re.compile(r'[0-9]+')
 specials_re = re.compile(r'^(S|P|C|T|O)([0-9]+)$', re.I)
 
