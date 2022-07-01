@@ -1229,7 +1229,7 @@ class File(AniDBObj):
                 mi = int(ret[0])
                 ma = int(ret[1])
                 ret = [ str(x) for x in range(mi, ma+1) ]
-        if m.group(1).upper() == 'P':
+        if m and m.group(1).upper() == 'P':
             self._part = m.group(2)
             # This is part of an episode/movie; for now, only support parts for
             # single episode shows

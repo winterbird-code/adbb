@@ -51,7 +51,7 @@ ep_nr_re = [
     re.compile(r'[/\._ \-]()([0-9]{1,4})([._ 0-9-]*)', re.I)  # if everything else fails, just match the first number(s)
 ]
 multiep_re = re.compile(r'[0-9]+')
-specials_re = re.compile(r'^(SPCTO)([0-9]+)$', re.I)
+specials_re = re.compile(r'^(S|P|C|T|O)([0-9]+)$', re.I)
 
 
 # http://www.radicand.org/blog/orz/2010/2/21/edonkey2000-hash-in-python/
