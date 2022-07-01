@@ -477,8 +477,8 @@ class File(AniDBObj):
     def part(self):
         if self._part:
             return self._part
-        if self.path:
-            f = os.path.basename(path)
+        if self._path:
+            f = os.path.basename(self._path)
             part_regex = [x for x in adbb.finfo.ep_nr_re if r'(p)' in x]
             for r in part_regex:
                 m = re.match(r, f)
