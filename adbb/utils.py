@@ -204,7 +204,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
                 nd, nh = os.path.split(newname)
                 os.makedirs(nd, exist_ok=True)
                 if 'freebsd' in sys.platform.lower():
-                    shutil.copy(f, newname)
+                    shutil.copy2(f, newname)
                     os.remove(f)
                 else:
                     try:
@@ -219,7 +219,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
                     if not files and all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in dirs]):
                         for d in dirs:
                             if 'freebsd' in sys.platform.lower():
-                                shutil.copytree(os.path.join(root, d), os.path.join(nd, d), copy_function=shutil.copy)
+                                shutil.copytree(os.path.join(root, d), os.path.join(nd, d))
                                 shutil.rmtree(os.path.join(root, d))
                             else:
                                 try:
