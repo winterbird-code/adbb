@@ -474,6 +474,25 @@ class File(AniDBObj):
         return None
 
     @property
+    def part(self):
+        if self._part:
+            return self._part
+        if self.path:
+            f = os.path.basename(path)
+            part_regex = [x for x in adbb.finfo.ep_nr_re if r'(p)' in x]
+            for r in part_regex:
+                m = re.match(r, f)
+                if m:
+                    break
+            if m:
+                try:
+                    self._part = int(m.group(2))
+                except ValueError:
+                    self._part = adbb.mapper.roman_numbering[m.group(2)]
+                return self._part
+        return None
+
+    @property
     def multiep(self):
         """Return all episode numbers if there are more of them. Note that this
         is very much not reliable since this attribute is not stored in the

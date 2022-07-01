@@ -153,14 +153,6 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             else:
                 title = ''
 
-            # check if file contains multiple episodes
-            if len(epfile.multiep) > 1:
-                mi = int(epfile.multiep[0].strip('SCTOPsctop'))
-                ma = int(epfile.multiep[-1].strip('SCTOPsctop'))
-                epstr = f'{mi:0{epnr_minlen}d}-{ma:0{epnr_minlen}d}'
-            else:
-                epstr = f'{int(epfile.multiep[0].strip("SCTOPsctop")):0{epnr_minlen}d}'
-
             is_extra=False
             m = re.match(adbb.fileinfo.specials_re, epfile.multiep[0])
             if m:
@@ -171,6 +163,14 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
                     is_extra=True
             else:
                 season='1'
+
+            # check if file contains multiple episodes
+            if len(epfile.multiep) > 1:
+                mi = int(epfile.multiep[0].strip('SCTOPsctop'))
+                ma = int(epfile.multiep[-1].strip('SCTOPsctop'))
+                epstr = f'{mi:0{epnr_minlen}d}-{ma:0{epnr_minlen}d}'
+            else:
+                epstr = f'{int(epfile.multiep[0].strip("SCTOPsctop")):0{epnr_minlen}d}'
 
             if is_extra:
                 newname = os.path.join('extras', f'[{group}] {aname} {m.group(1)}{epstr}{title}.{ext}')
