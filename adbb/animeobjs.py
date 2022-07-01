@@ -479,11 +479,11 @@ class File(AniDBObj):
             return self._part
         if self._path:
             f = os.path.basename(self._path)
-            part_regex = [x for x in adbb.fileinfo.ep_nr_re if r'(p)' in x.pattern]
-            for r in part_regex:
-                m = re.search(r, f)
-                if m:
-                    break
+            for r in adbb.fileinfo.ep_nr_re:
+                if '(p)' in r.pattern:
+                    m = re.search(r, f)
+                    if m:
+                        break
             if m:
                 try:
                     self._part = int(m.group(2))
