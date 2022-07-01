@@ -479,11 +479,7 @@ class File(AniDBObj):
             return self._part
         if self._path:
             f = os.path.basename(self._path)
-            for r in adbb.fileinfo.ep_nr_re:
-                if '(p)' in r.pattern:
-                    m = re.search(r, f)
-                    if m:
-                        break
+            m = re.search(adbb.fileinfo.partfile_re, f)
             if m:
                 try:
                     self._part = int(m.group(2))
@@ -1168,8 +1164,6 @@ class File(AniDBObj):
                         continue
                 if res.group(1).lower() in ('s', "0", "00"):
                     ret.append("S{}".format(ep))
-                elif res.group(1).lower() == 'p':
-                    ret.append(f"P{ep}")
                 elif res.group(1).lower() == 'o':
                     ret.append("C{}".format(ep))
                 elif res.group(1).lower() == 'e':
@@ -1229,11 +1223,6 @@ class File(AniDBObj):
                 mi = int(ret[0])
                 ma = int(ret[1])
                 ret = [ str(x) for x in range(mi, ma+1) ]
-        if m and m.group(1).upper() == 'P':
-            self._part = m.group(2)
-            # This is part of an episode/movie; for now, only support parts for
-            # single episode shows
-            ret = ['1']
         adbb.log.debug("file '{}': looks like episode(s) {}".format(filename, ret))
         return [Episode(anime=anime, epno=e) for e in ret]
 
