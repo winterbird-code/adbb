@@ -35,6 +35,7 @@ ep_nr_re = [
     re.compile(r'[Ss]([0-9]+)[ ._-]*e([0-9]+)()', re.I),  # foo.s01.e01, foo.s01_e01, S01E02 foo, S01 - E02
     re.compile(r'[\._ -]()ep_?([0-9]+)()', re.I),  # foo.ep01, foo.EP_01
     re.compile(r'[\\/\._ \[\(-]([0-9]{1,2})x([0-9]+)()', re.I),  # foo.1x09* or just /1x09*
+    re.compile(r'[/\._ \-](p)(?:ar)t[/\._ \-]{0,3}([0-9ivx]+)', re.I),  # part-file, not complete episode/movie
     re.compile(r'[/\._ \-](s)p(?:ecials?)?[._ \-]{0,3}([0-9]{1,3})([._ 0-9-]*)', re.I),  # specials
     re.compile(r'[/\._ \-]{2}()([0-9]{1,4})([._ 0-9-]*)', re.I),  # match '- nr' '-_nr' etc.
     re.compile(r'[/\._ \-](s)[\._ \-]{0,3}([0-9]{1,3})([._ 0-9-]*)', re.I),  # specials
@@ -50,6 +51,7 @@ ep_nr_re = [
     re.compile(r'[/\._ \-]()([0-9]{1,4})([._ 0-9-]*)', re.I)  # if everything else fails, just match the first number(s)
 ]
 multiep_re = re.compile(r'[0-9]+')
+specials_re = re.compile(r'^(SPCTO)([0-9]+)$', re.I)
 
 
 # http://www.radicand.org/blog/orz/2010/2/21/edonkey2000-hash-in-python/

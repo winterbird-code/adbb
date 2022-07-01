@@ -433,6 +433,7 @@ class File(AniDBObj):
     _ed2khash = None
     _mtime = None
     _lid = None
+    _part = None
 
     @property
     def anime(self):
@@ -638,6 +639,7 @@ class File(AniDBObj):
             self._db_commit(sess)
             adbb.log.debug("Found db_data for file: {}".format(self.db_data))
             self._is_generic = self.db_data.is_generic
+            self._part = self.db_data.part
         self._close_db_session(sess)
 
     def _anidb_file_data_callback(self, res):
@@ -725,6 +727,8 @@ class File(AniDBObj):
             finfo['lid'] = None
             self.remove_from_mylist()
 
+        finfo['part'] = self._part
+
         adbb.log.debug("fetching a db session to update {}".format(self))
         if self.db_data and not self.db_data.aid and not 'aid' in finfo:
             anime, episodes = self._guess_anime_ep_from_file()
@@ -803,6 +807,7 @@ class File(AniDBObj):
             finfo['ed2khash'] = self._ed2khash
             finfo['mtime'] = self._mtime
 
+        finfo['part'] = self._part
 
         if finfo['gid']:
             self._is_generic = False
@@ -1081,13 +1086,6 @@ class File(AniDBObj):
         head, filename = os.path.split(self.path)
         head, parent_dir = os.path.split(head)
 
-        # try to figure out which episodes this file contains
-        # episodes = self._guess_epno_from_filename(filename)
-        # if not episodes:
-        #    return (None, None)
-        # if aid:
-        #    return (aid, episodes)
-
         if not aid:
             # first try to figure out anime by the directory name
             if parent_dir and self.parse_dir:
@@ -1143,11 +1141,16 @@ class File(AniDBObj):
                 try:
                     ep = int(m)
                 except ValueError:
-                    adbb.log.warning("Got non-numeric episode number when searching '{}' with regex '{}'".format(
-                        filename, regex))
-                    continue
+                    if ep.lower() in adbb.mapper.roman_numbering:
+                        ep = adbb.mapper.roman_numbering[ep.lower()]
+                    else:
+                        adbb.log.warning("Got non-numeric episode number when searching '{}' with regex '{}'".format(
+                            filename, regex))
+                        continue
                 if res.group(1).lower() in ('s', "0", "00"):
                     ret.append("S{}".format(ep))
+                if res.group(1).lower() == 'p':
+                    ret.append(f"P{ep}")
                 elif res.group(1).lower() == 'o':
                     ret.append("C{}".format(ep))
                 elif res.group(1).lower() == 'e':
@@ -1196,13 +1199,22 @@ class File(AniDBObj):
             if not ret:
                 adbb.log.debug("file '{}': could not figure out episode number(s)".format(filename))
                 return []
+        m = re.match(adbb.fileinfo.specials_re(ret[0]))
         if len(ret) == 2:
-            try:
+            if m:
+                mi = int(m.group(2))
+                m = re.match(adbb.fileinfo.specials_re(ret[1]))
+                ma = int(m.group(2))
+                ret = [ f"{m.group(1).upper()}{x}" for x in range(mi, ma+1) ]
+            else:
                 mi = int(ret[0])
                 ma = int(ret[1])
                 ret = [ str(x) for x in range(mi, ma+1) ]
-            except ValueError:
-                pass
+        if m.group(1).upper() == 'P':
+            self._part = m.group(2)
+            # This is part of an episode/movie; for now, only support parts for
+            # single episode shows
+            ret = ['1']
         adbb.log.debug("file '{}': looks like episode(s) {}".format(filename, ret))
         return [Episode(anime=anime, epno=e) for e in ret]
 

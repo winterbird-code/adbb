@@ -181,6 +181,7 @@ class FileTable(Base):
     fid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True, index=True)
     is_deprecated = Column(Boolean, nullable=True)
     is_generic = Column(Boolean, nullable=False)
+    part = Column(Integer, nullable=True)
 
     # state
     crc_ok = Column(Boolean, nullable=True)

@@ -133,6 +133,10 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             # "versions" of the movie:
             #   https://jellyfin.org/docs/general/server/media/movies.html
             newname = f'{aname} [{group}].{ext}'
+
+            # But wait, what if this is just a part of the movie?
+            if epfile.part:
+                newname = f'{aname} Part {epfile.part} [{group}].{ext}'
         else:
             # Use the first found of these titles:
             # * romanji
@@ -149,23 +153,28 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             else:
                 title = ''
 
-            try:
-                # regular episodes converts nicely to integers...
-                int(epfile.multiep[0])
-                season='1'
-            except ValueError:
-                # ... while specials doesn't (contains characters in episode number)
-                season='0'
-                epnr_minlen = len(str(epfile.anime.special_ep_count))
-
             # check if file contains multiple episodes
             if len(epfile.multiep) > 1:
-                mi = int(epfile.multiep[0].strip('SCT'))
-                ma = int(epfile.multiep[-1].strip('SCT'))
+                mi = int(epfile.multiep[0].strip('SCTOPsctop'))
+                ma = int(epfile.multiep[-1].strip('SCTOPsctop'))
                 epstr = f'{mi:0{epnr_minlen}d}-{ma:0{epnr_minlen}d}'
             else:
-                epstr = f'{int(epfile.multiep[0].strip("SCT")):0{epnr_minlen}d}'
+                epstr = f'{int(epfile.multiep[0].strip("SCTOPsctop")):0{epnr_minlen}d}'
 
+            is_extra=False
+            m = re.match(adbb.fileinfo.specials_re, epfile.multiep[0])
+            if m:
+                epnr_minlen = len(str(epfile.anime.special_ep_count))
+                if m.group(1).upper == 'S':
+                    season='0'
+                else:
+                    is_extra=True
+            else:
+                season='1'
+
+        if is_extra:
+            newname = os.path.join('extras', f'[{group}] {aname} {m.group(1)}{epstr}{title}.{ext}')
+        else:
             newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
 
         if target_dir:
@@ -189,10 +198,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             adbb.log.info(f'Moving "{f}" -> "{newname}"')
             if not dry_run:
                 nd, nh = os.path.split(newname)
-                try:
-                    os.mkdir(nd)
-                except FileExistsError:
-                    pass
+                os.makedirs(nd, exist_ok=True)
                 shutil.move(f, newname)
                 od, oh = os.path.split(f)
                 # Make sure extras-directories are moved if it's all that is
