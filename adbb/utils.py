@@ -348,7 +348,7 @@ def jellyfin_anime_sync():
                     for ep in fo.multiep:
                         if str(ep).lower() == str(fo.episode.episode_number).lower():
                             fo.update_mylist(state='on hdd', watched=watched)
-                        else:
+                        elif fo.is_generic:
                             mylist_fo = adbb.File(anime=anime, episode=ep)
                             mylist_fo.update_mylist(state='on hdd', watched=watched)
 
