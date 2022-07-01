@@ -172,10 +172,10 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             else:
                 season='1'
 
-        if is_extra:
-            newname = os.path.join('extras', f'[{group}] {aname} {m.group(1)}{epstr}{title}.{ext}')
-        else:
-            newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
+            if is_extra:
+                newname = os.path.join('extras', f'[{group}] {aname} {m.group(1)}{epstr}{title}.{ext}')
+            else:
+                newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
 
         if target_dir:
             # Escape slash as usual, but for also remove dot-prefixes because
