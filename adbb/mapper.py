@@ -182,7 +182,7 @@ roman_numbering = {
     'xv': 15,
     'xvi': 16,
     'xvii': 17,
-    'xviii': 18
+    'xviii': 18,
     'xix': 19,
     'xx': 20,
     'xxi': 21,
