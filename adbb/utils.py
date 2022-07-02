@@ -242,6 +242,8 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
 def arrange_anime():
     args = arrange_anime_args()
     filelist = create_filelist(args.paths)
+    if not filelist:
+        sys.exit(0)
     adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
     arrange_files(filelist, target_dir=args.target_dir, dry_run=args.dry_run)
     adbb.close()
