@@ -178,6 +178,10 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
             else:
                 newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
 
+        # for at least zfs the limit is at 256 chars, but seriously...
+        if len(newname) > 155:
+            newname = newname[:150] + f'...{ext}'
+
         if target_dir:
             # Escape slash as usual, but for also remove dot-prefixes because
             # "Hidden" directories are a hastle; sorry .hack//...
