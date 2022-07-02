@@ -202,7 +202,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
         if f != newname:
             if os.path.exists(newname):
                 adbb.log.error(f'Not moving "{f}" because file "{newname}" already exists')
-                break
+                continue
             adbb.log.info(f'Moving "{f}" -> "{newname}"')
             if not dry_run:
                 nd, nh = os.path.split(newname)
