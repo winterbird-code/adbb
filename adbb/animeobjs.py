@@ -164,14 +164,14 @@ class Anime(AniDBObj):
         ref = datetime.timedelta()
         # The shorter time there is between when anidb updated this
         # anime and we fetched our data, the more likely is it that it has
-        # changed again. So we start at 60%, and removes 20% for each week
-        probability = 60
+        # changed again. So we start at 30%, and removes 10% for each week
+        probability = 30
         data_age = self._to_timezoneaware(self.db_data.updated) - self.db_data.anidb_updated.replace(tzinfo=self._timezone)
         while probability > 0:
             data_age -= datetime.timedelta(weeks=1)
             if data_age < ref:
                 break
-            probability -= 20
+            probability -= 10
         return max(probability, 0)
 
     def _get_db_data(self, close=True):
@@ -336,14 +336,6 @@ class Episode(AniDBObj):
             self._episode_number = epno
         self.db_data = None
         self._get_db_data()
-
-    def _extra_refresh_probability(self):
-        probability = 0
-        # For episdes, add 10% probability if the episode name is 
-        # "Episode <epnr>"
-        if re.match("Episode {}".format(self.db_data.epno), self.db_data.title_eng):
-            probability = 10
-        return max(probability, 0)
 
     def _get_db_data(self):
         sess = self._get_db_session()
