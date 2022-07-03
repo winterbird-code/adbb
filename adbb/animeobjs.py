@@ -1280,6 +1280,25 @@ class Group(AniDBObj):
                                 related_gid = x.split(',')[0],
                                 relation_type = adbb.mapper.group_relation_map[x.split(',')[1]])
                             for x in relations if ',' in x]
+
+                    if self.db_data:
+                        new_relations = []
+                        for r in relations:
+                            found = False
+                            for sr in self.db_data.relations:
+                                if r.related_gid == sr.related_gid:
+                                    found = True
+                                    sr.relation_type = r.relation_type
+                                    sr.group_pk = self.db_data.pk
+                                    new_relations.append(sr)
+                            if not found:
+                                r.group_pk = self.db_data.pk
+                                new_relations.append(r)
+                        for r in self.db_data.relations:
+                            if r not in new_relations:
+                                sess.delete(r)
+                        relations = new_relations
+
                     ginfo['relations'] = relations
                 elif attr in adbb.mapper.group_map_converters:
                     ginfo[attr] = adbb.mapper.group_map_converters[attr](data)
