@@ -174,13 +174,15 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
                 epstr = f'{int(epfile.multiep[0].strip("SCTOPsctop")):0{epnr_minlen}d}'
 
             if is_extra:
-                newname = os.path.join('extras', f'[{group}] {aname} {m.group(1)}{epstr}{title}.{ext}')
+                newname = f'[{group}] {aname} {m.group(1)}{epstr}{title}.{ext}'
+                if len(newname.encode('utf8')) > 250:
+                    newname = f'[{group}] {aname} {m.group(1)}{epstr}.{ext}'
+                newname = os.path.join('extras', newname)
             else:
                 newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
+                if len(newname.encode('utf8')) > 250:
+                    newname = f'[{group}] {aname} S{season}E{epstr}.{ext}'
 
-        # for at least zfs the limit is at 256 chars, but seriously...
-        if len(newname) > 90:
-            newname = newname[:85] + f'...{ext}'
 
         if target_dir:
             # Escape slash as usual, but for also remove dot-prefixes because
