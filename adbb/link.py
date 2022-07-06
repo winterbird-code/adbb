@@ -107,11 +107,8 @@ class AniDBLink(threading.Thread):
     def _do_delay(self):
         if self._banned > 0:
             delay = max(pow(2*3600, self._banned), 1*3600)
-            adbb.log.info("Banned, sleeping for {} hours".format(delay / 3600))
-            sleep(delay)
-            adbb.log.info("Slept well, let's see if we're still banned...")
-            self._reauthenticate()
-            return
+            adbb.log.info("Banned aborting")
+            sys.exit(2)
         age = time() - self._last_packet
         if age > 600:
             self._counter = 0
