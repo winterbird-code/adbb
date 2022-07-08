@@ -239,7 +239,12 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
                 except OSError:
                     pass
                 if not epfile.lid:
-                    epfile.update_mylist(watched=False, state='on hdd')
+                    for e in epfile.multiep:
+                        if str(e).lower() == str(epfile.episode.episode_number).lower():
+                            epfile.update_mylist(watched=False, state='on hdd')
+                        else:
+                            tmpfile = File(anime=epfile.anime, episode=e)
+                            tmpfile.update_mylist(watched=False, state='on hdd')
 
 def arrange_anime():
     args = arrange_anime_args()
