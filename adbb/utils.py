@@ -343,7 +343,7 @@ def jellyfin_anime_sync():
     jf_client.stop()
     metadata = {}
     for path in args.paths:
-        metadata.update({ x['Path']: x for x in res['Items'] if x['Path'].startswith(path) })
+        metadata.update({ x['Path']: x for x in res['Items'] if 'Path' in x and  x['Path'].startswith(path) })
     adbb.log.debug(f"Found {len(metadata)} files in jellyfin")
 
     # search for a file in the metadata dict and return when watched
