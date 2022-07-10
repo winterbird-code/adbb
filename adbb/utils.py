@@ -1,6 +1,7 @@
 #!/bin/env python3
 import argparse
 import datetime
+import logging
 import netrc
 import os
 import re
@@ -44,6 +45,30 @@ RE_GROUP_END = re.compile(r'.*[\(\[]([^\d\]\)]+)[\)\]]\.\w{3,4}$')
 
 # matches anidb's default english episode names
 RE_DEFAULT_EPNAME = re.compile(r'Episode S?\d+', re.I)
+
+class InfoLogFilter(logging.Filter):
+    def filter(self, record):
+        if record.levelno <= logging.INFO:
+            return True
+        return False
+
+
+def get_command_logger(debug=False):
+    logger = logging.getLogger(__name__)
+    if debug:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+
+    lh = logging.StreamHandler(stream=sys.stdout)
+    lh.setFormatter(logging.Formatter('%(asctime)s: %(message)s'))
+    lh.addFilter(InfoLogFilter())
+    logger.addHandler(lh)
+
+    lh = logging.StreamHandler(stream=sys.stderr)
+    lh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(filename)s:%(lineno)d - %(message)s'))
+    lh.setLevel(logging.WARNING)
+    logger.addHandler(lh)
 
 
 def arrange_anime_args():
@@ -251,7 +276,8 @@ def arrange_anime():
     filelist = create_filelist(args.paths)
     if not filelist:
         sys.exit(0)
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
+    log = get_command_logger(debug=args.debug)
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log netrc_file=args.authfile)
     arrange_files(filelist, target_dir=args.target_dir, dry_run=args.dry_run)
     adbb.close()
 
@@ -331,7 +357,8 @@ def jellyfin_anime_sync():
     else:
         user, password = (args.jellyfin_user, args.jellyfin_password)
 
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, debug=args.debug, netrc_file=args.authfile)
+    log = get_command_logger(debug=args.debug)
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
 
     # we actually do not need the jellyfin client that much...
     jf_client = init_jellyfin(args.jellyfin_url, user, password)
