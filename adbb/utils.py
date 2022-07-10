@@ -277,7 +277,7 @@ def arrange_anime():
     if not filelist:
         sys.exit(0)
     log = get_command_logger(debug=args.debug)
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log netrc_file=args.authfile)
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
     arrange_files(filelist, target_dir=args.target_dir, dry_run=args.dry_run)
     adbb.close()
 
