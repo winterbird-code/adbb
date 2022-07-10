@@ -69,6 +69,7 @@ def get_command_logger(debug=False):
     lh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(filename)s:%(lineno)d - %(message)s'))
     lh.setLevel(logging.WARNING)
     logger.addHandler(lh)
+    return logger
 
 
 def arrange_anime_args():
