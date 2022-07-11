@@ -1029,11 +1029,8 @@ class File(AniDBObj):
                 viewdate=viewdate,
                 source=source,
                 other=other)
-        elif self.is_generic:
-            if self._multiep:
-                episodes = self._multiep
-            else:
-                episodes = [self.episode.episode_number]
+        elif self.is_generic or not self._path:
+            episodes = self.multiep
             for ep in episodes:
                 wait.clear()
                 req = MyListAddCommand(
