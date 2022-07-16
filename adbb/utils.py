@@ -110,6 +110,14 @@ def arrange_anime_args():
             "-t", '--target-dir',
             help="Where to put the stuff after parsing...",
             )
+    parser.add_argument(
+            '-c', '--check-series-complete',
+            action='store_true',
+            help="log warning message when adding last episode in series to mylist")
+    parser.add_argument(
+            '-e', '--check-previous-episode',
+            action='store_true',
+            help='log warning message when adding file to mylist if previous episode is not in mylist')
     return parser.parse_args()
 
 def create_filelist(paths, recurse=True):
@@ -127,7 +135,7 @@ def create_filelist(paths, recurse=True):
             filelist.append(path)
     return filelist
 
-def arrange_files(filelist, target_dir=None, dry_run=False):
+def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False, check_complete=False):
     for f in filelist:
         epfile = adbb.File(path=f)
         if epfile.group:
@@ -265,6 +273,21 @@ def arrange_files(filelist, target_dir=None, dry_run=False):
                 except OSError:
                     pass
                 if not epfile.lid:
+
+                    if check_complete:
+                        last_ep = epfile.multiep[-1]
+                        if last_ep == str(epfile.anime.nr_of_episodes):
+                            adbb.log.warning(f'Adding last episode ({last_ep}) of {epfile.anime.title} to mylist')
+                    if check_previous:
+                        try:
+                            prev_epno = int(epfile.episode.episode_number)-1
+                        except ValueError:
+                            prev_epno = -1
+                        if prev_epno > 0:
+                            prev_ep = adbb.File(anime=epfile.Anime, episode=prev_ep)
+                            if not prev_ep.lid:
+                                adbb.log.warning(f'Adding episode {epfile.episode.episode_number} of {epfile.anime.title} to mylist, but episode {prev_ep} is not in mylist!')
+
                     for e in epfile.multiep:
                         if str(e).lower() == str(epfile.episode.episode_number).lower():
                             epfile.update_mylist(watched=False, state='on hdd')
@@ -279,7 +302,12 @@ def arrange_anime():
         sys.exit(0)
     log = get_command_logger(debug=args.debug)
     adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
-    arrange_files(filelist, target_dir=args.target_dir, dry_run=args.dry_run)
+    arrange_files(
+            filelist,
+            target_dir=args.target_dir,
+            dry_run=args.dry_run,
+            check_previous=args.check_previous_episode,
+            check_complete=args.check_series_complete)
     adbb.close()
 
 
