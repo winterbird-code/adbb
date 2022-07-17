@@ -284,9 +284,9 @@ def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False
                         except ValueError:
                             prev_epno = -1
                         if prev_epno > 0:
-                            prev_ep = adbb.File(anime=epfile.Anime, episode=prev_ep)
+                            prev_ep = adbb.File(anime=epfile.Anime, episode=prev_epno)
                             if not prev_ep.lid:
-                                adbb.log.warning(f'Adding episode {epfile.episode.episode_number} of {epfile.anime.title} to mylist, but episode {prev_ep} is not in mylist!')
+                                adbb.log.warning(f'Adding episode {epfile.episode.episode_number} of {epfile.anime.title} to mylist, but episode {prev_epno} is not in mylist!')
 
                     for e in epfile.multiep:
                         if str(e).lower() == str(epfile.episode.episode_number).lower():
