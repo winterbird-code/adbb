@@ -23,9 +23,9 @@ simply removing the cached file :)
 * recent python
 * sqlalchemy
 * sqlalchemy-compatible database:
-  * mysql is tested
-  * sqlite is tested
-  * postgresql should probably work
+  * mysql
+  * sqlite
+  * postgresql (the one most recently used and tested)
 
 
 ## Usage
@@ -222,6 +222,22 @@ The following attributes as returned from the AniDB API
 * dateflag
 * last_release
 * last_activity
+
+
+## Utilities
+
+The library contains two command line utilities for mylist management. These are purely implemented after
+personal need, but is probably useful for other people as well. The source code could also be consulted for
+inspiration to make other tools. For usage, run the command with --help.
+
+### arrange_anime
+
+Tool to identify episode files and move/rename them for easy identification by for media centers.
+You should probably run it with --dry-run first to make sure it behaves as expected.
+
+### jellyfin_anime_sync
+
+Tool to sync mylist watched status with jellyfin. Requires [jellyfin-apiclient-python](https://github.com/jellyfin/jellyfin-apiclient-python).
 
 ## TODO:
 In no particular order:
