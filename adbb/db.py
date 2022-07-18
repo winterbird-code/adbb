@@ -70,6 +70,7 @@ class AnimeTable(Base):
     # description = Column(Unicode(8194), nullable=True)
 
     updated = Column(DateTime(timezone=True), nullable=False)
+    last_update_dice = Column(DateTime(timezone=True), nullable=False)
 
     relations = relationship("AnimeRelationTable", backref='anime')
 
@@ -151,6 +152,7 @@ class EpisodeTable(Base):
         nullable=False)
 
     updated = Column(DateTime(timezone=True), nullable=False)
+    last_update_dice = Column(DateTime(timezone=True), nullable=False)
 
     def update(self, **kwargs):
         for key, attr in kwargs.items():
@@ -222,6 +224,7 @@ class FileTable(Base):
     lid = Column(BigInteger().with_variant(Integer, "sqlite"), nullable=True)
 
     updated = Column(DateTime(timezone=True), nullable=True)
+    last_update_dice = Column(DateTime(timezone=True), nullable=False)
 
     def update(self, **kwargs):
         for key, attr in kwargs.items():
@@ -263,6 +266,7 @@ class GroupTable(Base):
     relations = relationship("GroupRelationTable", backref='group')
 
     updated = Column(DateTime(timezone=True), nullable=True)
+    last_update_dice = Column(DateTime(timezone=True), nullable=False)
 
     def update(self, **kwargs):
         for key, attr in kwargs.items():

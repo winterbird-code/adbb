@@ -79,30 +79,34 @@ class AniDBObj(object):
             # never update twice the same day...
             if age < datetime.timedelta(days=1):
                 return
+            # also, if we've already calculated the update probability today we
+            # should not re-cacluclate it
+            time_since_dice = datetime.datetime.now(self._timezone) - self._to_timezoneaware(self.db_data.last_update_dice)
+            if  time_since_dice < datetime.timedelta(days=1):
+                return
+
             # probability is in percent
             # start with any extra refresh probability-parameters this class
             # implements. Default is 0, meaning it will never request the same
-            # data twice the first week, no matter how many times you request
-            # the data.
+            # data twice the first week.
             # 
-            # add 1% probability for each of the first 4 weeks, and then
-            # additional 5% for each month (or 30 days) after that.
+            # add 2% probability the second week and than raise probability
+            # ~50% each comming week (rounded up to closest whole percent)
             class_probability = self._extra_refresh_probability()
-            refresh_probability = class_probability
+            refresh_probability = 0
             while refresh_probability < 100:
                 age -= datetime.timedelta(weeks=1)
                 if age < ref:
                     break
-                refresh_probability += 1
-            while refresh_probability < 100:
-                age -= datetime.timedelta(days=30)
-                if age < ref:
-                    break
-                refresh_probability += 5
+                if not refresh_probability:
+                    refresh_probability = 2
+                else:
+                    refresh_probability = math.ceil(refresh_probability*1.5)
+            refresh_probability += class_probability
             refresh_probability = min(100, refresh_probability)
             adbb.log.debug("Probability of updating {}: {}% ({}% from class rules)".format(
                 self, refresh_probability, class_probability))
-            if random.randrange(100) < refresh_probability:
+            if random.randint(0, 100) <= refresh_probability:
                 self.update(block=block)
 
     def _send_anidb_update_req(self):
@@ -235,6 +239,7 @@ class Anime(AniDBObj):
         else:
             new = AnimeTable(**ainfo)
             new.updated = datetime.datetime.now(self._timezone)
+            new.last_update_dice = datetime.datetime.now(self._timezone)
             new.relations = relations
             # commit to sql database
             sess.add(new)
@@ -379,6 +384,7 @@ class Episode(AniDBObj):
         else:
             new = EpisodeTable(**einfo)
             new.updated = datetime.datetime.now(self._timezone)
+            new.last_update_dice = datetime.datetime.now(self._timezone)
             sess.add(new)
 
         if new:
@@ -752,6 +758,7 @@ class File(AniDBObj):
         else:
             new = FileTable(**finfo)
             new.updated = datetime.datetime.now(self._timezone)
+            new.last_update_dice = datetime.datetime.now(self._timezone)
             sess.add(new)
 
         if new:
@@ -798,10 +805,12 @@ class File(AniDBObj):
             if not res:
                 new = FileTable(**finfo)
                 new.updated = datetime.datetime.now(self._timezone)
+                new.last_update_dice = datetime.datetime.now(self._timezone)
                 sess.add(new)
             else:
                 obj = res[0]
                 obj.updated = datetime.datetime.now(self._timezone)
+                obj.last_update_dice = datetime.datetime.now(self._timezone)
                 obj.update(**finfo)
             self._db_commit(sess)
             self._close_db_session(sess)
@@ -829,6 +838,7 @@ class File(AniDBObj):
         else:
             new = FileTable(**finfo)
             new.updated = datetime.datetime.now(self._timezone)
+            new.last_update_dice = datetime.datetime.now(self._timezone)
             adbb.log.debug("Adding mylist info: {}".format(finfo))
             sess.add(new)
 
@@ -1257,6 +1267,7 @@ class Group(AniDBObj):
                         name=self._name, 
                         short=self._name,
                         updated = datetime.datetime.now(self._timezone)
+                        last_update_dice = datetime.datetime.now(self._timezone)
                         )
                 sess.add(new)
         else:
@@ -1316,6 +1327,7 @@ class Group(AniDBObj):
         else:
             new = GroupTable(**ginfo)
             new.updated = datetime.datetime.now(self._timezone)
+            new.last_update_dice = datetime.datetime.now(self._timezone)
             sess.add(new)
             self.db_data = new
 
