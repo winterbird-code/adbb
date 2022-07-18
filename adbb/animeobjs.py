@@ -16,6 +16,7 @@
 # along with adbb.  If not, see <http://www.gnu.org/licenses/>.
 
 import datetime
+import math
 import os
 import random
 import re
@@ -1266,7 +1267,7 @@ class Group(AniDBObj):
                 new = GroupTable(
                         name=self._name, 
                         short=self._name,
-                        updated = datetime.datetime.now(self._timezone)
+                        updated = datetime.datetime.now(self._timezone),
                         last_update_dice = datetime.datetime.now(self._timezone)
                         )
                 sess.add(new)
