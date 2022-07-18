@@ -107,6 +107,13 @@ class AniDBObj(object):
             refresh_probability = min(100, refresh_probability)
             adbb.log.debug("Probability of updating {}: {}% ({}% from class rules)".format(
                 self, refresh_probability, class_probability))
+
+            sess = self._get_db_session()
+            self.db_data = sess.merge(self.db_data)
+            self.db_data.last_update_dice = datetime.datetime.now(self._timezone)
+            self._db_commit(sess)
+            self._close_db_session(sess)
+
             if random.randint(0, 100) <= refresh_probability:
                 self.update(block=block)
 
