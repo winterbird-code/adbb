@@ -1267,6 +1267,9 @@ class Group(AniDBObj):
 
     def _anidb_data_callback(self, res):
         sess = self._get_db_session()
+        if self.db_data:
+            self.db_data = sess.merge(self.db_data)
+
         if res.rescode == "350":
             if self.db_data:
                 sess.delete(self.db_data)
@@ -1311,9 +1314,7 @@ class Group(AniDBObj):
                 elif attr in adbb.mapper.group_map_converters:
                     ginfo[attr] = adbb.mapper.group_map_converters[attr](data)
 
-        sess = self._get_db_session()
         if self.db_data:
-            self.db_data = sess.merge(self.db_data)
             self.db_data.update(**ginfo)
             self.db_data.updated = datetime.datetime.now(self._timezone)
             new_relations = []
