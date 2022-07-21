@@ -301,7 +301,7 @@ class AnimeTitle:
         self.title = title
 
     def __repr__(self):
-        return "AnimeTitle(type='{}', lang='{}', title='{}')".format(
+        return "AnimeTitle(titletype='{}', lang='{}', title='{}')".format(
             self.titletype,
             self.lang,
             self.title)
@@ -1368,7 +1368,7 @@ class Group(AniDBObj):
         self._updating.release()
 
     def __repr__(self):
-        return "Group(gid='{}', name={})". \
+        return "Group(gid='{}', name='{}')". \
             format(
                 self._gid,
                 self._name)
