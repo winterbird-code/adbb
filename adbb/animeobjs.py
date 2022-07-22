@@ -80,10 +80,12 @@ class AniDBObj(object):
             # never update twice the same day...
             if age < datetime.timedelta(days=1):
                 return
-            # also, if we've already calculated the update probability today we
-            # should not re-cacluclate it
+            # also, if we've already calculated the update probability recently
+            # we should not re-cacluclate it. Timeout is 20 hours which should
+            # be enough for not triggering often, but still allow a daily
+            # cronjob to update the cache every day.
             time_since_dice = datetime.datetime.now(self._timezone) - self._to_timezoneaware(self.db_data.last_update_dice)
-            if  time_since_dice < datetime.timedelta(days=1):
+            if  time_since_dice < datetime.timedelta(hours=20):
                 return
 
             # probability is in percent
