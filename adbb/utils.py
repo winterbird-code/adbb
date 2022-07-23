@@ -393,7 +393,8 @@ def jellyfin_anime_sync():
     jf_client = init_jellyfin(args.jellyfin_url, user, password)
     res = jf_client.jellyfin.user_items(params={
             'recursive': True,
-            'includeItemTypes': ['Episode', 'Movie', 'Video'],
+            'mediaTypes': [ 'Video' ],
+            'collapseBoxSetItems': False,
             'fields': 'Path',
             })
     jf_client.stop()
