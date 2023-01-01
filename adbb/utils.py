@@ -163,15 +163,22 @@ def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False
         aname = epfile.anime.title.replace('/', '⁄')
         ext = f.rsplit('.')[-1]
         if epfile.anime.nr_of_episodes == 1:
+
+            # Check if anidb knows if this is a specific version
+            if epfile.file_version and epfile.file_version != 1:
+                vstr = f'v{epfile.file_version}'
+            else:
+                vstr = ''
+
             # personal definition of movies: exactly 1 (main-)episode.
             # Name movies after title and append groupname to mark different
             # "versions" of the movie:
             #   https://jellyfin.org/docs/general/server/media/movies.html
-            newname = f'{aname} [{group}].{ext}'
+            newname = f'{aname} [{group}]{vstr}.{ext}'
 
             # But wait, what if this is just a part of the movie?
             if epfile.part:
-                newname = f'{aname} [{group}]-part{epfile.part}.{ext}'
+                newname = f'{aname} [{group}]{vstr}-part{epfile.part}.{ext}'
         else:
             # Use the first found of these titles:
             # * romanji
@@ -207,15 +214,21 @@ def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False
             else:
                 epstr = f'{int(epfile.multiep[0].strip("SCTOPsctop")):0{epnr_minlen}d}'
 
+            # Is the file versioned?
+            if epfile.file_version and epfile.file_version != 1:
+                vstr = f' (v{epfile.file_version})'
+            else:
+                vstr = ''
+
             if is_extra:
-                newname = f'[{group}] {aname} {m.group(1)}{epstr}{title}.{ext}'
+                newname = f'[{group}] {aname} {m.group(1)}{epstr}{title}{vstr}.{ext}'
                 if len(newname.encode('utf8')) > 250:
-                    newname = f'[{group}] {aname} {m.group(1)}{epstr}.{ext}'
+                    newname = f'[{group}] {aname} {m.group(1)}{epstr}{vstr}.{ext}'
                 newname = os.path.join('extras', newname)
             else:
-                newname = f'[{group}] {aname} S{season}E{epstr}{title}.{ext}'
+                newname = f'[{group}] {aname} S{season}E{epstr}{title}{vstr}.{ext}'
                 if len(newname.encode('utf8')) > 250:
-                    newname = f'[{group}] {aname} S{season}E{epstr}.{ext}'
+                    newname = f'[{group}] {aname} S{season}E{epstr}{vstr}.{ext}'
 
 
         if target_dir:
