@@ -160,7 +160,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False
         # and Luffy)
         epnr_minlen = len(str(max(epfile.anime.highest_episode_number, epfile.anime.nr_of_episodes)))
 
-        aname = epfile.anime.title.replace('/', '⁄')
+        aname = epfile.anime.title.replace('/', '⁄').lstrip('.')
         ext = f.rsplit('.')[-1]
         if epfile.anime.nr_of_episodes == 1:
 
