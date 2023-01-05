@@ -305,7 +305,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False
                         if str(e).lower() == str(epfile.episode.episode_number).lower():
                             epfile.update_mylist(watched=False, state='on hdd')
                         else:
-                            tmpfile = File(anime=epfile.anime, episode=e)
+                            tmpfile = adbb.File(anime=epfile.anime, episode=e)
                             tmpfile.update_mylist(watched=False, state='on hdd')
 
 def arrange_anime():
