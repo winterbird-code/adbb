@@ -41,7 +41,7 @@ RE_JELLYFIN_SEASON_DIR = re.compile(r'^Season \d+$', re.I)
 # matches groupnames from paranthesis at start of filename
 RE_GROUP_START = re.compile(r'^[\(\[]([^\d\]\)]+)[\)\]].*')
 # matches groupnames from paranthesis at end of filename
-RE_GROUP_END = re.compile(r'.*[\(\[]([^\d\]\)]+)[\)\]]\.\w{3,4}$')
+RE_GROUP_END = re.compile(r'^.*[\(\[]([^\d\]\)]+)[\)\]].*')
 
 # matches anidb's default english episode names
 RE_DEFAULT_EPNAME = re.compile(r'Episode S?\d+', re.I)
@@ -216,19 +216,19 @@ def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False
 
             # Is the file versioned?
             if epfile.file_version and epfile.file_version != 1:
-                vstr = f' (v{epfile.file_version})'
+                vstr = f'v{epfile.file_version}'
             else:
                 vstr = ''
 
             if is_extra:
-                newname = f'[{group}] {aname} {m.group(1)}{epstr}{title}{vstr}.{ext}'
+                newname = f'{aname} {m.group(1)}{epstr}{title} [{group}]{vstr}.{ext}'
                 if len(newname.encode('utf8')) > 250:
-                    newname = f'[{group}] {aname} {m.group(1)}{epstr}{vstr}.{ext}'
+                    newname = f'{aname} {m.group(1)}{epstr} [{group}]{vstr}.{ext}'
                 newname = os.path.join('extras', newname)
             else:
-                newname = f'[{group}] {aname} S{season}E{epstr}{title}{vstr}.{ext}'
+                newname = f'{aname} S{season}E{epstr}{title} [{group}]{vstr}.{ext}'
                 if len(newname.encode('utf8')) > 250:
-                    newname = f'[{group}] {aname} S{season}E{epstr}{vstr}.{ext}'
+                    newname = f'{aname} S{season}E{epstr} [{group}]{vstr}.{ext}'
 
 
         if target_dir:
