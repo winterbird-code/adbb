@@ -20,9 +20,10 @@ import datetime
 import difflib
 import functools
 import re
-import hashlib
 import os
 import xml.etree.cElementTree as etree
+
+from Crypto.Hash import MD4
 
 try:
     import libnfs
@@ -65,8 +66,6 @@ def get_file_hash(path, nfs_obj=None):
 
 def _calculate_ed2khash(fileObj):
     """ Returns the ed2k hash of a given file."""
-    md4 = hashlib.new('md4').copy
-
     def gen(f):
         while True:
             x = f.read(9728000)
@@ -76,7 +75,7 @@ def _calculate_ed2khash(fileObj):
                 return
 
     def md4_hash(data):
-        m = md4()
+        m = MD4.new()
         m.update(data)
         return m
 
