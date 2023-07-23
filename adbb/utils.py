@@ -118,6 +118,10 @@ def arrange_anime_args():
             '-e', '--check-previous-episode',
             action='store_true',
             help='log warning message when adding file to mylist if previous episode is not in mylist')
+    parser.add_argument(
+            '-M', '--disable-mylist',
+            action='store_true',
+            help='do not update mylist status for files')
     return parser.parse_args()
 
 def create_filelist(paths, recurse=True):
@@ -135,7 +139,13 @@ def create_filelist(paths, recurse=True):
             filelist.append(path)
     return filelist
 
-def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False, check_complete=False):
+def arrange_files(
+        filelist,
+        target_dir=None,
+        dry_run=False,
+        check_previous=False,
+        check_complete=False,
+        disable_mylist=False):
     for f in filelist:
         epfile = adbb.File(path=f)
         if epfile.group:
@@ -285,7 +295,7 @@ def arrange_files(filelist, target_dir=None, dry_run=False, check_previous=False
                     os.rmdir(od)
                 except OSError:
                     pass
-                if not epfile.lid:
+                if not epfile.lid and not disable_mylist:
 
                     if check_complete:
                         last_ep = epfile.multiep[-1]
@@ -320,7 +330,8 @@ def arrange_anime():
             target_dir=args.target_dir,
             dry_run=args.dry_run,
             check_previous=args.check_previous_episode,
-            check_complete=args.check_series_complete)
+            check_complete=args.check_series_complete,
+            disable_mylist=args.disable_mylist)
     adbb.close()
 
 
