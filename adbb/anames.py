@@ -150,7 +150,7 @@ def get_lang_code(short):
     return None
     
 
-def get_titles(name=None, aid=None, max_results=10, score_for_match=0.6):
+def get_titles(name=None, aid=None, max_results=10, score_for_match=0.8):
     res = []
 
     if xml is None:
