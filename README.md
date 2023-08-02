@@ -21,6 +21,7 @@ simply removing the cached file :)
 
 ## Requirements
 * recent python
+* pycryptodome (required hash methods has been removed from the standard python library)
 * sqlalchemy
 * sqlalchemy-compatible database:
   * mysql
@@ -242,7 +243,4 @@ Tool to sync mylist watched status with jellyfin. Requires [jellyfin-apiclient-p
 ## TODO:
 In no particular order:
 * add support for more anidb-commands (anime description would be nice...)
-* make cache invalidation smarter
-* add better/more error checking, right now it will probably crash at most errors it will encounter :)
-* make multiprocess/multithreading-safe
 * any other feature request?
