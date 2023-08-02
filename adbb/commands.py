@@ -67,7 +67,9 @@ class Command:
             self.retries -= 1
             link.request(self, self.callback, prio=True)
         else:
-            raise AniDBCommandTimeoutError("Command {} timed out".format(self))
+            link.set_banned(code=604, reason=b'API not responding')
+            self.retries = 2
+            link.request(self, self.callback, prio=True)
 
 
 # first run

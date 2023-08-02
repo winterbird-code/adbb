@@ -106,9 +106,9 @@ class AniDBLink(threading.Thread):
 
     def _do_delay(self):
         if self._banned > 0:
-            delay = max(pow(2*3600, self._banned), 1*3600)
-            adbb.log.info("Banned aborting")
-            sys.exit(2)
+            delay = 1800*self._banned
+            adbb.log.warning(f"API not available, will wait for {delay/60} minutes")
+            sleep(delay)
         age = time() - self._last_packet
         if age > 600:
             self._counter = 0
@@ -158,7 +158,13 @@ class AniDBLink(threading.Thread):
         else:
             adbb.log.debug("NetIO > %s" % repr(data))
 
-        self._listener.sock.sendto(data, self._server)
+        try:
+            self._listener.sock.sendto(data, self._server)
+        except socket.gaierror as e:
+            adbb.log.warning(f'Failed to send command {command.command}: {e}')
+            if command.command not in ('AUTH', 'PING', 'ENCRYPT'):
+                self._queue.append(command)
+            self.set_banned(code=999, reason=b'Network unavailable')
 
     def request(self, command, callback, prio=False):
         command.started = None
@@ -193,8 +199,8 @@ class AniDBLink(threading.Thread):
         else:
             self._listener.stop()
 
-    def set_banned(self, reason=None):
-        adbb.log.error("Oh no! I'm banned: {}".format(reason))
+    def set_banned(self, code, reason=None):
+        adbb.log.error("Backing off: {}".format(reason))
         self._banned += 1
         self._authed.clear()
         self._session = 0
@@ -259,9 +265,17 @@ class AniDBListener(threading.Thread):
                     continue
             else:
                 # No responsetag... we're probably banned
-                adbb.log.critical("We've been banned from the anidb UDP API: {}".format(repr(data)))
+                try:
+                    code=int(repr(data)[3])
+                except ValueError:
+                    adbb.log.critical(f"Unparseable response from API: {repr(data)}")
+                    sys.exit(2)
                 reason = resp.resstr
-                self._sender.set_banned(reason=reason)
+                if code in (600, 601, 602, 604):
+                    self._sender.set_banned(code=code, reason=reason)
+                else:
+                    adbb.log.critical(f'Unhandled response from API: {repr(data)}')
+                    sys.exit(2)
                 continue
             resp = resp.resolve(cmd)
             resp.parse()
