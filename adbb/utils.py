@@ -135,17 +135,24 @@ def create_filelist(paths, recurse=True):
                 filelist.extend([ os.path.join(root, x) for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ])
                 if not recurse:
                     break
-        else:
-            filelist.append(path)
     return filelist
 
+# The callback will be called for each file after the new filename has been decided, but
+# before the file is actually moved. 
+# The callback function should take the keyword arguments:
+# new_name: where arrange_files wants to move the file
+# adbb_file: the adbb.File object for the current file
+#
+# If the callback returns it should be a string containing a new path where to
+# move the file.
 def arrange_files(
         filelist,
         target_dir=None,
         dry_run=False,
         check_previous=False,
         check_complete=False,
-        disable_mylist=False):
+        disable_mylist=False,
+        callback=None):
     for f in filelist:
         epfile = adbb.File(path=f)
         if epfile.group:
@@ -256,6 +263,10 @@ def arrange_files(
             else:
                 newname = os.path.join(target_dir, anime_dirname, newname)
 
+        if callback:
+            ret = callback(new_name=newname, adbb_file=epfile)
+            if ret:
+                newname = ret
 
         # no action if file is already properly named and in the right place
         if f != newname:
