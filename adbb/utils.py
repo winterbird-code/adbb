@@ -434,12 +434,12 @@ def arrange_files(
                     linkname = f"{aname} S{season}E{epno}.{ext}"
                 link = os.path.join(d, linkname)
                 link_to_directory(newname, link, exclusive_dir=exclusive_dir)
-            elif epfile.anime.tmdbid and link_movies_dir and not epfile.anime.tvdbid:
+            elif epfile.anime.nr_of_episodes == 1 and epfile.anime.tmdbid and link_movies_dir:
                 d = os.path.join(link_movies_dir, f'adbb [tmdbid-{epfile.anime.tmdbid}]')
                 linkname = os.path.basename(newname)
                 link = os.path.join(d, linkname)
                 link_to_directory(newname, link, exclusive_dir=exclusive_dir)
-            elif epfile.anime.imdbid and link_movies_dir and not epfile.anime.tvdbid:
+            elif epfile.anime.nr_of_episodes == 1 and epfile.anime.imdbid and link_movies_dir:
                 d = os.path.join(link_movies_dir, f'adbb [imdbid-{epfile.anime.imdbid}]')
                 linkname = os.path.basename(newname)
                 link = os.path.join(d, linkname)
@@ -690,6 +690,9 @@ def jellyfin_anime_sync():
                     failures = 0
                     # For now; don't work too hard...
                     time.sleep(delay)
+
+            # Clean up broken symlinks/empty dirs
+            links = {}
             for path in [args.tvdb_library, args.moviedb_library]:
                 if not path:
                     continue
@@ -697,12 +700,30 @@ def jellyfin_anime_sync():
                     dirs[:] = [x for x in dirs if x.startswith('adbb [')]
                     if files:
                         remove_dir_if_empty(root)
+                        for link in files:
+                            lp = os.path.join(root, link)
+                            if os.path.islink(lp):
+                                target = os.readlink(lp)
+                                if not target in links:
+                                    links[target] = [lp]
+                                else:
+                                    links[target].append(lp)
             if args.anidb_library:
                 for root, dirs, files in os.walk(args.anidb_library):
                     dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
                     if files:
                         remove_dir_if_empty(root)
-
+                        for link in files:
+                            lp = os.path.join(root, link)
+                            if os.path.islink(lp):
+                                target = os.readlink(lp)
+                                if not target in links:
+                                    links[target] = [lp]
+                                else:
+                                    links[target].append(lp)
+            multilinked = {t: l for t,l in links.items() if len(l) > 1}
+            for t, l in multilinked.items():
+                adbb.log.warning(f"{t} linked to from multiple places: {l}")
             runtime = starttime-datetime.datetime.now()
             log.info(f"Completed sync in {str(runtime)}")
         except (sqlalchemy.exc.OperationalError, jellyfin_apiclient_python.exceptions.HTTPException) as e:
