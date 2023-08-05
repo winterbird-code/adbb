@@ -72,7 +72,7 @@ def get_command_logger(debug=False, syslog=False):
         else:
             lh = logging.handlers.SysLogHandler()
         lh.setFormatter(logging.Formatter(
-            f'{sys.argv[0]}[%(process)d] %(levelname)s: %(message)s'))
+            f'{os.path.basename(sys.argv[0])}[%(process)d] %(levelname)s: %(message)s'))
         logger.addHandler(lh)
 
     else:
