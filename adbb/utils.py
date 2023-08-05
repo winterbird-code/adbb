@@ -72,7 +72,7 @@ def get_command_logger(debug=False, syslog=False):
         else:
             lh = logging.handlers.SysLogHandler()
         lh.setFormatter(logging.Formatter(
-            'adbb[%(process)d] %(levelname)s: %(message)s'))
+            f'{sys.argv[0]}[%(process)d] %(levelname)s: %(message)s'))
         logger.addHandler(lh)
 
     else:
@@ -538,6 +538,7 @@ def get_jellyfin_anime_sync_args():
                     Defaults to 0 when run as a one-time operation, in repeat-mode the
                     default is an aproximate to let a complete run finish in about 22
                     hours.''',
+            type=int,
             default=None
             )
     parser.add_argument(
@@ -632,7 +633,7 @@ def jellyfin_anime_sync():
             if args.sleep_delay:
                 delay = args.sleep_delay
             elif args.sleep_delay is None and args.repeat:
-                delay = min((22*60*60-len(full_path_list)*5)/len(full_path_list), 300)
+                delay = max(min((22*60*60-len(full_path_list)*5)/len(full_path_list), 300), 0)
             else:
                 delay = 0
 
