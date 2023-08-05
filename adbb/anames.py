@@ -209,6 +209,7 @@ def get_titles(name=None, aid=None, max_results=10, score_for_match=0.8):
             exact_match=anime.get('aid')
 
         if name:
+            name.replace('⁄', '/')
             for title in anime.findall('title'):
                 if name.lower() in title.text.lower():
                     exact_match=title.text
