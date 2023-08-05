@@ -164,7 +164,7 @@ def remove_dir_if_empty(directory):
             if os.path.islink(p) and not os.path.exists(os.readlink(p)):
                 os.remove(p)
                 log.info(f"Removed broken link {p}")
-                removed.add(f)
+                removed.add(f.lower())
         if not files or all([x.lower() in JELLYFIN_SPECIAL_DIRS + removed for x in files]):
             for f in files:
                 os.remove(f)
