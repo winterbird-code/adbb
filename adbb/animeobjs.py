@@ -161,12 +161,15 @@ class Anime(AniDBObj):
         self._titles = None
         self._title = None
 
-        if isinstance(init, int):
-            self._aid, self._titles, score, best_title = adbb.anames.get_titles(
-                aid=init)[0]
-        elif isinstance(init, str):
-            self._aid, self._titles, score, best_title = adbb.anames.get_titles(
-                name=init)[0]
+        try:
+            if isinstance(init, int):
+                self._aid, self._titles, score, best_title = adbb.anames.get_titles(
+                    aid=init)[0]
+            elif isinstance(init, str):
+                self._aid, self._titles, score, best_title = adbb.anames.get_titles(
+                    name=init)[0]
+        except IndexError:
+            raise IllegalAnimeObject(f"No title match for '{init}'")
 
         self._title = [x.title for x in self.titles
                        if x.lang is None and x.titletype == 'main'][0]

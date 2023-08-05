@@ -14,6 +14,7 @@ import urllib
 
 import adbb
 import adbb.anames
+from adbb.errors import *
 import sqlalchemy.exc
 
 # These extensions are considered video types
@@ -651,7 +652,12 @@ def jellyfin_anime_sync():
                         pdir, cdir = os.path.split(pdir)
                     
                     adbb.log.debug(f"Found {len(files)} files in folder for '{cdir}'")
-                    anime = adbb.Anime(cdir)
+                    try:
+                        anime = adbb.Anime(cdir)
+                    except IllegalAnimeObject as e:
+                        adbb.log.error(f"Couldn't identify Anime at '{root}': {e}")
+                        continue
+
                     if not args.no_watched:
                         for f in files:
                             fpath = os.path.join(root, f)
