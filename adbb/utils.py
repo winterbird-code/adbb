@@ -4,13 +4,17 @@ import datetime
 import logging
 import netrc
 import os
+import random
 import re
 import shutil
 import socket
 import sys
+import time
 import urllib
 
 import adbb
+import adbb.anames
+import sqlalchemy.exc
 
 # These extensions are considered video types
 SUPPORTED_FILETYPES = [
@@ -34,6 +38,7 @@ JELLYFIN_SPECIAL_DIRS = [
         'featurettes',
         'extras',
         'trailers',
+        'misc'
         ]
 
 RE_JELLYFIN_SEASON_DIR = re.compile(r'^Season \d+$', re.I)
@@ -53,22 +58,32 @@ class InfoLogFilter(logging.Filter):
         return False
 
 
-def get_command_logger(debug=False):
+def get_command_logger(debug=False, syslog=False):
     logger = logging.getLogger(__name__)
     if debug:
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
 
-    lh = logging.StreamHandler(stream=sys.stdout)
-    lh.setFormatter(logging.Formatter('%(asctime)s: %(message)s'))
-    lh.addFilter(InfoLogFilter())
-    logger.addHandler(lh)
+    if syslog:
+        if os.path.exists('/dev/log'):
+            lh = logging.handlers.SysLogHandler(address='/dev/log')
+        else:
+            lh = logging.handlers.SysLogHandler()
+        lh.setFormatter(logging.Formatter(
+            'adbb[%(process)d] %(levelname)s: %(message)s'))
+        logger.addHandler(lh)
 
-    lh = logging.StreamHandler(stream=sys.stderr)
-    lh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(filename)s:%(lineno)d - %(message)s'))
-    lh.setLevel(logging.WARNING)
-    logger.addHandler(lh)
+    else:
+        lh = logging.StreamHandler(stream=sys.stdout)
+        lh.setFormatter(logging.Formatter('%(asctime)s: %(message)s'))
+        lh.addFilter(InfoLogFilter())
+        logger.addHandler(lh)
+
+        lh = logging.StreamHandler(stream=sys.stderr)
+        lh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(filename)s:%(lineno)d - %(message)s'))
+        lh.setLevel(logging.WARNING)
+        logger.addHandler(lh)
     return logger
 
 
@@ -137,6 +152,63 @@ def create_filelist(paths, recurse=True):
                     break
     return filelist
 
+def remove_dir_if_empty(directory):
+    log = logging.getLogger(__name__)
+    remove=False
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = []
+        removed = []
+        for f in files:
+            p = os.path.join(root,f)
+            if os.path.islink(p) and not os.path.exists(os.readlink(p)):
+                os.remove(p)
+                log.info(f"Removed broken link {p}")
+                removed.add(f)
+        if not files or all([x.lower() in JELLYFIN_SPECIAL_DIRS + removed for x in files]):
+            for f in files:
+                os.remove(f)
+            remove=True
+    if remove:
+        log.info(f"Removing empty directory {directory}")
+        try:
+            os.rmdir(directory)
+        except OSError as e:
+            log.error(f"Could not remove directory {directory}: {e}")
+
+def link_to_directory(target, linkname, exclusive_dir=None):
+    log = logging.getLogger(__name__)
+    linkdir, name = os.path.split(linkname)
+    targetdir, targetname = os.path.split(target)
+    if os.path.islink(linkname) and os.readlink(linkname) == target:
+        pass
+    else:
+        os.makedirs(linkdir, exist_ok=True)
+        tmplink = os.path.join(linkdir, f'.{name}.tmp')
+        os.symlink(target, tmplink)
+        os.rename(tmplink, linkname)
+        log.info(f"Created link {linkname} -> {target}")
+    for d in JELLYFIN_SPECIAL_DIRS:
+        extrasdir_src = os.path.join(targetdir, d)
+        extrasdir_lnk = os.path.join(linkdir, d)
+        if os.path.isdir(extrasdir_src) and not os.path.islink(extrasdir_lnk):
+            os.symlink(extrasdir_src, extrasdir_lnk)
+            log.info(f"Linked extras dir {extrasdir_lnk} -> {extrasdir_src}")
+    # Will never remove the linkdir from here, but will clean up any broken
+    # links
+    remove_dir_if_empty(linkdir)
+    if exclusive_dir and os.path.isdir(exclusive_dir):
+        changed=False
+        for root, dirs, files in os.walk(exclusive_dir, followlinks=False):
+            dirs = []
+            for f in files:
+                p = os.path.join(root, f)
+                if os.path.islink(p) and os.readlink(p) == target:
+                    os.remove(p)
+                    log.info(f"Removed link {p} from exclusive directory; it's now linked to from {linkdir}")
+                    changed=True
+        if changed:
+            remove_dir_if_empty(exclusive_dir)
+
 # The callback will be called for each file after the new filename has been decided, but
 # before the file is actually moved. 
 # The callback function should take the keyword arguments:
@@ -152,7 +224,11 @@ def arrange_files(
         check_previous=False,
         check_complete=False,
         disable_mylist=False,
-        callback=None):
+        callback=None,
+        link_movies_dir=None,
+        link_tv_dir=None,
+        link_exclusive_dir=None
+        ):
     for f in filelist:
         epfile = adbb.File(path=f)
         if epfile.group:
@@ -179,6 +255,7 @@ def arrange_files(
 
         aname = epfile.anime.title.replace('/', '⁄').lstrip('.')
         ext = f.rsplit('.')[-1]
+        is_extra=False
         if epfile.anime.nr_of_episodes == 1:
 
             # Check if anidb knows if this is a specific version
@@ -212,7 +289,6 @@ def arrange_files(
             else:
                 title = ''
 
-            is_extra=False
             m = re.match(adbb.fileinfo.specials_re, epfile.multiep[0])
             if m:
                 epnr_minlen = len(str(epfile.anime.special_ep_count))
@@ -329,6 +405,49 @@ def arrange_files(
                             tmpfile = adbb.File(anime=epfile.anime, episode=e)
                             tmpfile.update_mylist(watched=False, state='on hdd')
 
+        if not is_extra:
+            season, epno = epfile.episode.tvdb_episode
+            if link_exclusive_dir:
+                if epfile.anime.nr_of_episodes == 1:
+                    exclusive_dir = os.path.join(link_exclusive_dir, 'Movies', aname)
+                else:
+                    exclusive_dir = os.path.join(link_exclusive_dir, 'Series', aname)
+            else:
+                exclusive_dir = None
+
+            # Jellyfin can't handle specials in absolute order
+            if season and season not in ["1", "a"] and epfile.anime.tvdbid:
+                if adbb.anames.tvdbid_has_absolute_order(epfile.anime.tvdbid):
+                    epno = None
+
+            if epfile.anime.tvdbid and link_tv_dir and epno:
+                d = os.path.join(link_tv_dir, f'adbb [tvdbid-{epfile.anime.tvdbid}]')
+                epnos = epfile.multiep
+                if epnos[0] != epnos[-1]:
+                    last_ep = adbb.Episode(anime=epfile.anime, epno=epnos[-1])
+                    last_season, last_epno = last_ep.tvdb_episode
+                    epno = f'{epno}-{last_epno}'
+                if season == 'a':
+                    linkname = f"{aname} - {epno}.{ext}"
+                else:
+                    linkname = f"{aname} S{season}E{epno}.{ext}"
+                link = os.path.join(d, linkname)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir)
+            elif epfile.anime.tmdbid and link_movies_dir and not epfile.anime.tvdbid:
+                d = os.path.join(link_movies_dir, f'adbb [tmdbid-{epfile.anime.tmdbid}]')
+                linkname = os.path.basename(newname)
+                link = os.path.join(d, linkname)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir)
+            elif epfile.anime.imdbid and link_movies_dir and not epfile.anime.tvdbid:
+                d = os.path.join(link_movies_dir, f'adbb [imdbid-{epfile.anime.imdbid}]')
+                linkname = os.path.basename(newname)
+                link = os.path.join(d, linkname)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir)
+            elif exclusive_dir:
+                linkname = os.path.basename(newname)
+                link = os.path.join(exclusive_dir, linkname)
+                link_to_directory(newname, link)
+
 def arrange_anime():
     args = arrange_anime_args()
     filelist = create_filelist(args.paths)
@@ -388,9 +507,51 @@ def get_jellyfin_anime_sync_args():
             action="store_true"
             )
     parser.add_argument(
-            'paths',
-            help="Where the anime is stored",
-            nargs="+"
+            '-R', '--repeat',
+            help="when sync is completed, start a new sync",
+            action="store_true"
+            )
+    parser.add_argument(
+            '-t', '--tvdb-library',
+            help="Maintain a tvdb-compatible library at path",
+            default=None,
+            )
+    parser.add_argument(
+            '-m', '--moviedb-library',
+            help="Maintain a imdb/tmdb-compatible library at path",
+            default=None,
+            )
+    parser.add_argument(
+            '-i', '--anidb-library',
+            help='Maintain a library of anidb-exclusive titles at path',
+            default=None,
+            )
+    parser.add_argument(
+            '-g', '--staging-path',
+            help='Add any compatible file at path to library',
+            default=None
+            )
+    parser.add_argument(
+            '-l', '--sleep-delay',
+            help='''Sleep this number of seconds between each media directory.
+                    Defaults to 0 when run as a one-time operation, in repeat-mode the
+                    default is an aproximate to let a complete run finish in about 22
+                    hours.''',
+            default=None
+            )
+    parser.add_argument(
+            '-y', '--use-syslog',
+            help='Silence console output and log to syslog instead.',
+            action="store_true"
+            )
+    parser.add_argument(
+            '-W', '--no-watched',
+            help='Disable mylist update of watched status',
+            action="store_true"
+            )
+    parser.add_argument(
+            'path',
+            help="Where the anime is stored"
             )
     return parser.parse_args()
 
@@ -412,82 +573,149 @@ def init_jellyfin(url, user, password):
 
 
 def jellyfin_anime_sync():
+    import jellyfin_apiclient_python.exceptions
     args = get_jellyfin_anime_sync_args()
 
-    if not args.jellyfin_user or not args.jellyfin_password:
-        parsed_url = urllib.parse.urlparse(args.jellyfin_url)
-        nrc = netrc.netrc(args.authfile)
-        user, _account, password = nrc.authenticators(parsed_url.hostname)
-    else:
-        user, password = (args.jellyfin_user, args.jellyfin_password)
+    log = get_command_logger(debug=args.debug, syslog=args.use_syslog)
+    reinit_adbb=True
+    failures=0
 
-    log = get_command_logger(debug=args.debug)
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
-
-    # we actually do not need the jellyfin client that much...
-    jf_client = init_jellyfin(args.jellyfin_url, user, password)
-    res = jf_client.jellyfin.user_items(params={
-            'recursive': True,
-            'mediaTypes': [ 'Video' ],
-            'collapseBoxSetItems': False,
-            'fields': 'Path',
-            })
-    jf_client.stop()
-    metadata = {}
-    for path in args.paths:
-        metadata.update({ x['Path']: x for x in res['Items'] if 'Path' in x and  x['Path'].startswith(path) })
-    adbb.log.debug(f"Found {len(metadata)} files in jellyfin")
-
-    # search for a file in the metadata dict and return when watched
-    # Will return False if not watched or if not in dict
-    def get_watched_for_file(path):
-        if path in metadata:
-            if 'LastPlayedDate' in metadata[path]['UserData']:
-                timestr = metadata[path]['UserData']['LastPlayedDate']
-                timestr = timestr = f"{timestr[:23].strip('Z'):0<23}+0000"
-                return datetime.datetime.strptime(
-                        timestr,
-                        '%Y-%m-%dT%H:%M:%S.%f%z'
-                        )
-        return False
-
-    for path in args.paths:
-        for root, dirs, files in os.walk(path):
-            dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
-            files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
-            if not files:
-                continue
-            if '/Movies/' in root:
-                single_ep = True
+    while True:
+        delay=0
+        starttime = datetime.datetime.now()
+        try:
+            if not args.jellyfin_user or not args.jellyfin_password:
+                parsed_url = urllib.parse.urlparse(args.jellyfin_url)
+                nrc = netrc.netrc(args.authfile)
+                user, _account, password = nrc.authenticators(parsed_url.hostname)
             else:
-                single_ep = False
-            
-            pdir, cdir = os.path.split(root)
-            while pdir:
-                if cdir and not re.match(RE_JELLYFIN_SEASON_DIR, cdir):
-                    break
-                pdir, cdir = os.path.split(pdir)
-            
-            adbb.log.debug(f"Found {len(files)} files in folder for '{cdir}'")
-            anime = adbb.Anime(cdir)
-            for f in files:
-                fpath = os.path.join(root, f)
-                watched = get_watched_for_file(fpath)
-                adbb.log.debug(f"{fpath} watched: {watched}")
-                fo = adbb.File(path=fpath, anime=anime, force_single_episode_series=single_ep)
-                if not fo.mylist_state or fo.mylist_viewed != bool(watched):
-                    for ep in fo.multiep:
-                        if str(ep).lower() == str(fo.episode.episode_number).lower():
-                            fo.update_mylist(state='on hdd', watched=watched)
-                        elif fo.is_generic:
-                            mylist_fo = adbb.File(anime=anime, episode=ep)
-                            mylist_fo.update_mylist(state='on hdd', watched=watched)
+                user, password = (args.jellyfin_user, args.jellyfin_password)
 
-            if args.rearrange:
-                arrange_files([os.path.join(root, f) for f in files], target_dir=pdir)
+            if reinit_adbb:
+                adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
+                reinit_adbb=False
+
+            # we actually do not need the jellyfin client that much...
+            jf_client = init_jellyfin(args.jellyfin_url, user, password)
+            res = jf_client.jellyfin.user_items(params={
+                    'recursive': True,
+                    'mediaTypes': [ 'Video' ],
+                    'collapseBoxSetItems': False,
+                    'fields': 'Path',
+                    })
+            jf_client.stop()
+            metadata = { x['Path']: x for x in res['Items'] if 'Path' in x and os.path.realpath(x['Path']).startswith(args.path) }
+            adbb.log.debug(f"Found {len(metadata)} files in jellyfin")
+
+            # search for a file in the metadata dict and return when watched
+            # Will return False if not watched or if not in dict
+            def get_watched_for_file(path):
+                if path in metadata:
+                    if 'LastPlayedDate' in metadata[path]['UserData']:
+                        timestr = metadata[path]['UserData']['LastPlayedDate']
+                        timestr = timestr = f"{timestr[:23].strip('Z'):0<23}+0000"
+                        return datetime.datetime.strptime(
+                                timestr,
+                                '%Y-%m-%dT%H:%M:%S.%f%z'
+                                )
+                return False
+
+            full_path_list = []
+            for root, dirs, files in os.walk(args.path):
+                dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
+                files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
+                if files:
+                    full_path_list.append(root)
+            random.shuffle(full_path_list)
+
+            if args.sleep_delay:
+                delay = args.sleep_delay
+            elif args.sleep_delay is None and args.repeat:
+                delay = min((22*60*60-len(full_path_list)*5)/len(full_path_list), 300)
+            else:
+                delay = 0
+
+            for path in full_path_list:
+                for root, dirs, files in os.walk(path):
+                    dirs[:] = []
+                    files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
+                    if '/Movies/' in root:
+                        single_ep = True
+                    else:
+                        single_ep = False
+                    
+                    pdir, cdir = os.path.split(root)
+                    while pdir:
+                        if cdir and not re.match(RE_JELLYFIN_SEASON_DIR, cdir):
+                            break
+                        pdir, cdir = os.path.split(pdir)
+                    
+                    adbb.log.debug(f"Found {len(files)} files in folder for '{cdir}'")
+                    anime = adbb.Anime(cdir)
+                    if not args.no_watched:
+                        for f in files:
+                            fpath = os.path.join(root, f)
+                            watched = get_watched_for_file(fpath)
+                            adbb.log.debug(f"{fpath} watched: {watched}")
+                            fo = adbb.File(path=fpath, anime=anime, force_single_episode_series=single_ep)
+                            if not fo.mylist_state or fo.mylist_viewed != bool(watched):
+                                for ep in fo.multiep:
+                                    if str(ep).lower() == str(fo.episode.episode_number).lower():
+                                        fo.update_mylist(state='on hdd', watched=watched)
+                                    elif fo.is_generic:
+                                        mylist_fo = adbb.File(anime=anime, episode=ep)
+                                        mylist_fo.update_mylist(state='on hdd', watched=watched)
+
+                    if args.rearrange:
+                        arrange_files([os.path.join(root, f) for f in files],
+                                      target_dir=pdir,
+                                      link_movies_dir=args.moviedb_library,
+                                      link_tv_dir=args.tvdb_library,
+                                      link_exclusive_dir=args.anidb_library
+                                      )
+                        if args.staging_path:
+                            files = create_filelist([args.staging_path])
+                            arrange_files(files,
+                                          target_dir=args.path,
+                                          link_movies_dir=args.moviedb_library,
+                                          link_tv_dir=args.tvdb_library,
+                                          link_exclusive_dir=args.anidb_library
+                                          )
+                    failures = 0
+                    # For now; don't work too hard...
+                    time.sleep(delay)
+            for path in [args.tvdb_library, args.moviedb_library]:
+                if not path:
+                    continue
+                for root, dirs, files in os.walk(path):
+                    dirs[:] = [x for x in dirs if x.startswith('adbb [')]
+                    if files:
+                        remove_dir_if_empty(root)
+            if args.anidb_library:
+                for root, dirs, files in os.walk(args.anidb_library):
+                    dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
+                    if files:
+                        remove_dir_if_empty(root)
+
+            runtime = starttime-datetime.datetime.now()
+            log.info(f"Completed sync in {str(runtime)}")
+        except (sqlalchemy.exc.OperationalError, jellyfin_apiclient_python.exceptions.HTTPException) as e:
+            if not failures:
+                failures = 1
+            else:
+                failures *= 2
+            adbb.log.warning(f"Network error, will retry in {failures} minutes: {e}")
+            adbb.close()
+            reinit_adbb=True
+            time.sleep(failures*60)
+        except KeyboardInterrupt:
+            adbb.log.info("Logging out...")
+            break
+
+        if not (args.repeat or failures):
+            break
 
     adbb.close()
-
 
 if __name__ == '__main__':
     main()

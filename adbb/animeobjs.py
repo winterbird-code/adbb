@@ -280,6 +280,17 @@ class Anime(AniDBObj):
             self._close_db_session(sess)
         return relations
 
+    @property
+    def tvdbid(self):
+        return adbb.anames.get_tvdbid(self.aid)
+    @property
+    def tmdbid(self):
+        return adbb.anames.get_tmdbid(self.aid)
+    @property
+    def imdbid(self):
+        return adbb.anames.get_imdbid(self.aid)
+
+
     def __eq__(self, other):
         if not isinstance(other, Anime):
             return NotImplemented
@@ -319,6 +330,10 @@ class Episode(AniDBObj):
         if self._episode_number:
             return self._episode_number
         return self.epno
+
+    @property
+    def tvdb_episode(self):
+        return adbb.anames.get_tvdb_episode(self.anime.aid, self.episode_number)
 
     @property
     def eid(self):

@@ -74,6 +74,25 @@ def init(
     except FileNotFoundError:
         nrc = None
 
+    # unless both username and password is given; look for credentials in netrc
+    if not (api_user and api_pass):
+        if not nrc:
+            raise Exception("User and passwords are required if no netrc file exists")
+        for host in ['api.anidb.net', 'api.anidb.info', 'anidb.net']:
+            try:
+                username, _account, password = nrc.authenticators(host)
+            except TypeError:
+                pass
+            if username and password:
+                api_user = username
+                api_pass = password
+                break
+
+    _anidb = adbb.link.AniDBLink(
+        api_user,
+        api_pass,
+        myport=outgoing_udp_port)
+
     if nrc:
         # if no password is given in sql-url we try to look it up
         # in netrc
@@ -94,25 +113,6 @@ def init(
                     parts[2] = f'{username}:{password}@{host}'
         sql_db_url='/'.join(parts)
     _sessionmaker = adbb.db.init_db(sql_db_url)
-
-    # unless both username and password is given; look for credentials in netrc
-    if not (api_user and api_pass):
-        if not nrc:
-            raise Exception("User and passwords are required if no netrc file exists")
-        for host in ['api.anidb.net', 'api.anidb.info', 'anidb.net']:
-            try:
-                username, _account, password = nrc.authenticators(host)
-            except TypeError:
-                pass
-            if username and password:
-                api_user = username
-                api_pass = password
-                break
-
-    _anidb = adbb.link.AniDBLink(
-        api_user,
-        api_pass,
-        myport=outgoing_udp_port)
 
 
 def get_session():

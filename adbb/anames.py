@@ -39,68 +39,105 @@ from adbb.errors import AniDBError, AniDBFileError
 
 _animetitles_useragent="adbb"
 _animetitles_url="https://anidb.net/api/anime-titles.xml.gz"
+_anime_list_url="https://github.com/Anime-Lists/anime-lists/raw/master/anime-list.xml"
 iso_639_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "ISO-639-2_utf-8.txt")
 _update_interval = datetime.timedelta(hours=36)
 
-xml = None
+titles = None
+anilist = None
+absolute_order_set = None
 languages = None
 
-
-def update_animetitles():
-    global xml
-
-    file_name = _animetitles_url.split('/')[-1]
+def update_xml(url):
+    file_name = url.split('/')[-1]
+    ext = url.split('.')[-1]
     if os.name == 'posix':
-        animetitles_file = os.path.join('/var/tmp', file_name)
+        cache_file = os.path.join('/var/tmp', file_name)
     else:
-        animetitles_file = os.path.join(tempfile.gettempdir(), file_name)
+        cache_file = os.path.join(tempfile.gettempdir(), file_name)
 
-    tmp_dir = os.path.dirname(animetitles_file)
+    tmp_dir = os.path.dirname(cache_file)
     if not os.access(tmp_dir, os.W_OK):
         raise AniDBError("Cant get writeable temp path: %s" % tmp_dir)
 
-    old_file_exists = os.path.isfile(animetitles_file)
+    old_file_exists = os.path.isfile(cache_file)
     if old_file_exists:
-        stat = os.stat(animetitles_file)
+        stat = os.stat(cache_file)
         file_moddate = datetime.datetime.fromtimestamp(stat.st_mtime)
         if file_moddate > (datetime.datetime.now() - _update_interval):
-            xml = _read_anidb_xml(animetitles_file)
-            return
+            return cache_file
 
     now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S.%f")
-    tmp_file = os.path.join(os.path.dirname(animetitles_file), ".animetitles{}.xml.gz".format(now))
+    tmp_file = os.path.join(os.path.dirname(cache_file), f".adbb_cache{now}.{ext}")
 
     try:
         with open(tmp_file, "wb") as f:
             req = urllib.request.Request(
-                _animetitles_url,
+                url,
                 data=None,
                 headers={
                     'User-Agent': _animetitles_useragent
                 }
             )
             res = urllib.request.urlopen(req)
-            adbb.log.info('Fetching titledb cache file from anidb.')
+            adbb.log.info(f'Fetching cache file from {url}')
             f.write(res.read())
     except (IOError, urllib.error.URLError) as err:
-        adbb.log.error("Failed to fetch animetitles.xml: {}".format(err))
-        adbb.log.info("You might be temporary ip-banned from anidb, banns will be automatically lifted after 24 hours!")
+        adbb.log.error(f"Failed to fetch {url}: {err}")
+        adbb.log.info("You may be temporary ip-banned from anidb, banns will be automatically lifted after 24 hours!")
         os.remove(tmp_file)
         if old_file_exists:
-            xml = _read_anidb_xml(animetitles_file)
-        return
+            return cache_file
+        return None
     
-    if not _verify_animetitles_file(tmp_file):
+    if not _verify_xml_file(tmp_file):
         adbb.log.error("Failed to verify xml file: {}".format(tmp_file))
-        return
+        return None
 
-    if old_file_exists:
-        os.remove(animetitles_file)
-    os.rename(tmp_file, animetitles_file)
-    xml = _read_anidb_xml(animetitles_file)
+    os.rename(tmp_file, cache_file)
+    return cache_file
+
+def update_anilist():
+    global anilist, absolute_order_set
+    xml_file = update_xml(_anime_list_url)
+    if not xml_file and not anilist:
+        adbb.log.critical("Missing, and unable to fetch, list of anime mappings")
+        sys.exit(2)
+    xml = _read_anidb_xml(xml_file)
+    anilist = {}
+    absolute_order_set = set()
+    for anime in xml.iter("anime"):
+        aid=anime.attrib['anidbid']
+        attrs = anime.attrib
+        del attrs['anidbid']
+        if 'defaulttvdbseason' in attrs and 'tvdbid' in attrs and attrs['defaulttvdbseason'] == "a":
+            absolute_order_set.add(attrs['tvdbid'])
+        anilist[aid] = attrs
+        mappings=anime.find('mapping-list')
+        if mappings:
+            anilist[aid]['map'] = []
+            for m in mappings.iter("mapping"):
+                attrs = m.attrib
+                if m.text:
+                    attrs['epmap'] = {}
+                    episodes = m.text.strip(';').split(';')
+                    for e in episodes:
+                        (a, t) = e.split('-')
+                        attrs['epmap'][a] = t
+                anilist[aid]['map'].append(attrs)
+        name=anime.find('name')
+        anilist[aid]['name']=name.text
+
+def update_animetitles():
+    global titles
+    xml_file = update_xml(_animetitles_url)
+    if not xml_file and not titles:
+        adbb.log.critical("Missing, and unable to fetch, list of anime titles")
+        sys.exit(2)
+    titles = _read_anidb_xml(xml_file)
 
 
-def _verify_animetitles_file(path):
+def _verify_xml_file(path):
     if not os.path.isfile(path):
         return False
     
@@ -124,8 +161,12 @@ def _read_xml_into_etree(filePath):
         if not filePath:
             return None
         
-        with gzip.open(filePath, "rb") as f:
-            data = f.read()
+        if filePath.split('.')[-1] == 'gz':
+            with gzip.open(filePath, "rb") as f:
+                data = f.read()
+        else:
+            with open(filePath, 'rb') as f:
+                data = f.read()
 
         xmlASetree = etree.fromstring(data)
         return xmlASetree
@@ -151,15 +192,16 @@ def get_lang_code(short):
     
 
 def get_titles(name=None, aid=None, max_results=10, score_for_match=0.8):
+    global titles
     res = []
 
-    if xml is None:
+    if titles is None:
         update_animetitles()
-    if xml is None:
+    if titles is None:
         raise AniDBFileError('Could not get valid title cache file.')
 
     lastAid = None
-    for anime in xml.findall('anime'):
+    for anime in titles.findall('anime'):
         score=0
         best_title_match=None
         exact_match=None
@@ -177,16 +219,98 @@ def get_titles(name=None, aid=None, max_results=10, score_for_match=0.8):
                     best_title_match=title.text
 
         if score > score_for_match or exact_match:
-            titles = [
+            matched_titles = [
                     adbb.animeobjs.AnimeTitle(
                         x.get('type'),
                         get_lang_code(x.get('{http://www.w3.org/XML/1998/namespace}lang')),
                         x.text) for x in anime.findall('title')]
-            res.append((int(anime.get('aid')), titles, score, best_title_match))
+            res.append((int(anime.get('aid')), matched_titles, score, best_title_match))
 
     res.sort(key=lambda x: x[2], reverse=True)
     
     # response is a list of tuples in the form:
     #(<aid>, <list of titles>, <score of best title>, <best title>)
     return res[:max_results]
+
+
+def anilist_maps(aid):
+    global anilist
+    if not anilist:
+        update_anilist()
+    if str(aid) in anilist:
+        return anilist[str(aid)]
+    return {}
+
+def get_tvdbid(aid):
+    maps = anilist_maps(aid)
+    if 'tvdbid' in maps:
+        try:
+            int(maps['tvdbid'])
+        except ValueError:
+            return None
+        return maps['tvdbid']
+    return None
+
+def get_tmdbid(aid):
+    maps = anilist_maps(aid)
+    if 'tmdbid' in maps and maps['tmdbid'] not in ['', 'unknown']:
+        return maps['tmdbid']
+    return None
+
+def get_imdbid(aid):
+    maps = anilist_maps(aid)
+    if 'imdbid' in maps and maps['imdbid'] not in ['', 'unknown']:
+        return maps['imdbid']
+    return None
+
+def tvdbid_has_absolute_order(tvdbid):
+    global absolute_order_set
+    return tvdbid in absolute_order_set
+
+def get_tvdb_episode(aid, epno):
+    maps = anilist_maps(aid)
+    if not 'tvdbid' in maps:
+        return (None, None)
+
+    if 'defaulttvdbseason' in maps:
+        tvdb_season = maps['defaulttvdbseason']
+    else:
+        tvdb_season = None
+    anidb_season = "1"
+    if str(epno).upper().startswith('S'):
+        anidb_season = "0"
+    int_epno = int(str(epno).upper().strip('S'))
+    str_epno = str(int_epno)
+
+    if 'map' in maps:
+        for m in maps['map']:
+            if m['anidbseason'] != anidb_season:
+                continue
+            if 'epmap' in m:
+                if str_epno in m['epmap']:
+                    # Exact match for episode
+                    tvdb_epno = m['epmap'][str_epno]
+                    if tvdb_epno == "0":
+                        return (None, None)
+                    if 'tvdbseason' in m:
+                        tvdb_season = m['tvdbseason']
+                    return (tvdb_season, tvdb_epno)
+            if tvdb_season == "a" and 'tvdbseason' in m and m['tvdbseason'] != "0":
+                # Do not mix absolute and seasoned order...
+                continue
+            if 'start' in m and int_epno < int(m['start']):
+                continue
+            if 'end' in m and int_epno > int(m['end']):
+                continue
+            if 'offset' in m:
+                if 'tvdbseason' in m:
+                    tvdb_season = m['tvdbseason']
+                return (tvdb_season, str(int(m['offset']) + int_epno))
+    if anidb_season == "0" or not tvdb_season:
+        # Specials must be explicitly mapped
+        return (None, None)
+
+    if 'episodeoffset' in maps:
+        return (tvdb_season, str(int(maps['episodeoffset']) + int_epno))
+    return (tvdb_season, str_epno)
 
