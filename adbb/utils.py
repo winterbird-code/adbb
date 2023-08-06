@@ -409,7 +409,7 @@ def arrange_files(
         if not is_extra:
             season, epno = epfile.episode.tvdb_episode
 
-            if epfile.part:
+            if epfile.anime.nr_of_episodes == 1 and epfile.part:
                 partstr = f'-part{epfile.part}'
             else:
                 partstr = ""
