@@ -189,14 +189,14 @@ def link_to_directory(target, linkname, exclusive_dir=None):
         os.rename(tmplink, linkname)
         log.info(f"Created link {linkname} -> {target}")
     stats = os.stat(target)
-    os.utime(linkname, ns=(stats.st_atime_ns, stats.st_mtime_ns)
+    os.utime(linkname, ns=(stats.st_atime_ns, stats.st_mtime_ns))
     for d in JELLYFIN_SPECIAL_DIRS:
         extrasdir_src = os.path.join(targetdir, d)
         extrasdir_lnk = os.path.join(linkdir, d)
         if os.path.isdir(extrasdir_src) and not os.path.islink(extrasdir_lnk):
             os.symlink(extrasdir_src, extrasdir_lnk)
             stats = os.stat(extrasdir_src)
-            os.utime(extrasdir_lnk, ns=(stats.st_atime_ns, stats.st_mtime_ns)
+            os.utime(extrasdir_lnk, ns=(stats.st_atime_ns, stats.st_mtime_ns))
             log.info(f"Linked extras dir {extrasdir_lnk} -> {extrasdir_src}")
     # Will never remove the linkdir from here, but will clean up any broken
     # links
