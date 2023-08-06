@@ -408,6 +408,12 @@ def arrange_files(
 
         if not is_extra:
             season, epno = epfile.episode.tvdb_episode
+
+            if epfile.part:
+                partstr = f'-part{epfile.part}'
+            else:
+                partstr = ""
+
             if link_exclusive_dir:
                 if epfile.anime.nr_of_episodes == 1:
                     exclusive_dir = os.path.join(link_exclusive_dir, 'Movies', aname)
@@ -429,9 +435,9 @@ def arrange_files(
                     last_season, last_epno = last_ep.tvdb_episode
                     epno = f'{epno}-{last_epno}'
                 if season == 'a':
-                    linkname = f"{aname} - {epno}.{ext}"
+                    linkname = f"{aname} - {epno}{partstr}.{ext}"
                 else:
-                    linkname = f"{aname} S{season}E{epno}.{ext}"
+                    linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
                 link = os.path.join(d, linkname)
                 link_to_directory(newname, link, exclusive_dir=exclusive_dir)
             elif epfile.anime.nr_of_episodes == 1 and epfile.anime.tmdbid and link_movies_dir:
