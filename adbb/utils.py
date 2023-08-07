@@ -749,7 +749,7 @@ def jellyfin_anime_sync():
             multilinked = {t: l for t,l in links.items() if len(l) > 1}
             for t, l in multilinked.items():
                 adbb.log.warning(f"{t} linked to from multiple places: {l}")
-            runtime = starttime-datetime.datetime.now()
+            runtime = datetime.datetime.now()-starttime
             log.info(f"Completed sync in {str(runtime)}")
         except (sqlalchemy.exc.OperationalError, jellyfin_apiclient_python.exceptions.HTTPException) as e:
             if not failures:
