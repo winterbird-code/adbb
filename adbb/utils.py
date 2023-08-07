@@ -426,18 +426,32 @@ def arrange_files(
             else:
                 exclusive_dir = None
 
-            # Jellyfin can't handle specials in absolute order
+            # Jellyfin can't handle specials in absolute order (yet?)
+            # https://github.com/jellyfin/jellyfin-plugin-tvdb/pull/92
             if season and season not in ["1", "a"] and epfile.anime.tvdbid:
                 if adbb.anames.tvdbid_has_absolute_order(epfile.anime.tvdbid):
                     epno = None
 
             if epfile.anime.tvdbid and link_tv_dir and epno:
+                if type(epno) is tuple:
+                    partstr = f'-part{epno[1]}'
+                    epno = epno[0]
+                elif '+' in epno:
+                    epno = epno.split('+')
+
                 d = os.path.join(link_tv_dir, f'adbb [tvdbid-{epfile.anime.tvdbid}]')
                 epnos = epfile.multiep
                 if epnos[0] != epnos[-1]:
                     last_ep = adbb.Episode(anime=epfile.anime, epno=epnos[-1])
                     last_season, last_epno = last_ep.tvdb_episode
-                    epno = f'{epno}-{last_epno}'
+                    if type(last_epno) is tuple and last_epno[0] == epno:
+                            epno = epno
+                    elif '+' in last_epno:
+                        epno = f"{epno}-{last_epno.split('+')[-1]}"
+                    else:
+                        epno = f'{epno}-{last_epno}'
+                elif type(epno) is list:
+                    epno = f'{epno[0]}-{epno[-1]}'
                 if season == 'a':
                     linkname = f"{aname} - {epno}{partstr}.{ext}"
                 else:

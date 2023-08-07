@@ -123,7 +123,13 @@ def update_anilist():
                     episodes = m.text.strip(';').split(';')
                     for e in episodes:
                         (a, t) = e.split('-')
-                        attrs['epmap'][a] = t
+                        if '+' in a:
+                            a = a.split('+')
+                            for i in len(a):
+                                attrs['epmap'][a[i]] = (t, i+1)
+                        else:
+                            attrs['epmap'][a] = t
+
                 anilist[aid]['map'].append(attrs)
         name=anime.find('name')
         anilist[aid]['name']=name.text
