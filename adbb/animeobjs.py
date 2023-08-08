@@ -930,10 +930,12 @@ class File(AniDBObj):
             watched = self.db_data.mylist_viewdate
         else:
             watched = None
-        return "File(path='{}', fid={}, watched={})". \
+        return "File(path='{}', anime={}, episode_number={}, generic={}, watched={})". \
             format(
                 self._path,
-                self._fid,
+                self.anime.title,
+                self.episode.episode_number,
+                self._is_generic,
                 watched
                 )
 
