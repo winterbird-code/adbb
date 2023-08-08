@@ -926,12 +926,16 @@ class File(AniDBObj):
         self._updating.release()
 
     def __repr__(self):
-        return "File(path='{}', fid={}, anime={}, episode={})". \
+        if self.db_data:
+            watched = self.db_data.mylist_viewdate
+        else:
+            watched = None
+        return "File(path='{}', fid={}, watched={})". \
             format(
                 self._path,
                 self._fid,
-                self._anime,
-                self._episode)
+                watched
+                )
 
     def remove_from_mylist(self):
         wait = threading.Event()
@@ -1000,7 +1004,7 @@ class File(AniDBObj):
             if res.rescode in ('320', '330', '350', '310', '322', '411'):
                 adbb.log.warning("Could not add file {} to mylist, anidb says: {}".format(self, res.rescode))
             elif res.rescode in ('210', '310', '311'):
-                adbb.log.info("File {} added to mylist".format(self))
+                adbb.log.info("File {} updated in mylist".format(self))
                 # if 'entrycnt' is > 1 this is actually the lid...
                 # ... which is good I guess, because we want it.
                 adbb.log.debug("lines from MYLISTADD command: {}".format(res.datalines))
