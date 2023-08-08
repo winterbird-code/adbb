@@ -187,9 +187,9 @@ def link_to_directory(target, linkname, exclusive_dir=None):
         tmplink = os.path.join(linkdir, f'.{name}.tmp')
         os.symlink(target, tmplink)
         os.rename(tmplink, linkname)
+        stats = os.stat(target)
+        os.utime(linkname, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
         log.info(f"Created link {linkname} -> {target}")
-    stats = os.stat(target)
-    os.utime(linkname, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
     for d in JELLYFIN_SPECIAL_DIRS:
         extrasdir_src = os.path.join(targetdir, d)
         extrasdir_lnk = os.path.join(linkdir, d)
