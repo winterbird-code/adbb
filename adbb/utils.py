@@ -657,7 +657,7 @@ def jellyfin_anime_sync():
             if args.sleep_delay:
                 delay = args.sleep_delay
             elif args.sleep_delay is None and args.repeat:
-                delay = max(min((22*60*60-len(full_path_list)*5)/len(full_path_list), 300), 0)
+                delay = max(min((24*60*60-len(full_path_list)*9)/len(full_path_list), 300), 0)
             else:
                 delay = 0
 
@@ -713,7 +713,6 @@ def jellyfin_anime_sync():
                                           link_exclusive_dir=args.anidb_library
                                           )
                     failures = 0
-                    # For now; don't work too hard...
                     time.sleep(delay)
 
             # Clean up broken symlinks/empty dirs
