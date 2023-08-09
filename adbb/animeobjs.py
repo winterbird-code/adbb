@@ -1006,7 +1006,6 @@ class File(AniDBObj):
             if res.rescode in ('320', '330', '350', '310', '322', '411'):
                 adbb.log.warning("Could not add file {} to mylist, anidb says: {}".format(self, res.rescode))
             elif res.rescode in ('210', '310', '311'):
-                adbb.log.info("File {} updated in mylist".format(self))
                 # if 'entrycnt' is > 1 this is actually the lid...
                 # ... which is good I guess, because we want it.
                 adbb.log.debug("lines from MYLISTADD command: {}".format(res.datalines))
@@ -1127,6 +1126,7 @@ class File(AniDBObj):
                 self._updating.release()
                 return
             self._send_anidb_update_req(req_file=False, req_mylist=True)
+        adbb.log.info("File {} updated in mylist".format(self))
 
     def _guess_anime_ep_from_file(self, aid=None):
         if not self.path:
