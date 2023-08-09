@@ -460,6 +460,7 @@ class File(AniDBObj):
     _mtime = None
     _lid = None
     _part = None
+    _is_generic = None
 
     @property
     def anime(self):
@@ -930,11 +931,15 @@ class File(AniDBObj):
             watched = self.db_data.mylist_viewdate
         else:
             watched = None
-        return "File(path='{}', anime={}, episode_number={}, generic={}, watched={})". \
+        if self._path:
+            filename = os.path.basename(self._path)
+        else:
+            filename = None
+        return "File(filename='{}', anime={}, episode={}, generic={}, watched={})". \
             format(
-                self._path,
-                self.anime.title,
-                self.episode.episode_number,
+                filename,
+                self._anime,
+                self._episode,
                 self._is_generic,
                 watched
                 )

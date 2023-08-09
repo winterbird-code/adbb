@@ -98,26 +98,49 @@ def update_xml(url):
     return cache_file
 
 def update_anilist():
+    # These are the global variables we want to update
+    # reset them here.
     global anilist, absolute_order_set
+    anilist = {}
+    absolute_order_set = set()
+
     xml_file = update_xml(_anime_list_url)
     if not xml_file and not anilist:
         adbb.log.critical("Missing, and unable to fetch, list of anime mappings")
         sys.exit(2)
     xml = _read_anidb_xml(xml_file)
-    anilist = {}
-    absolute_order_set = set()
+    absolute_order = {}
+
+    # Iterate every anime entry in XML; save attributes in the anilist dict.
     for anime in xml.iter("anime"):
         aid=anime.attrib['anidbid']
-        attrs = anime.attrib
-        del attrs['anidbid']
-        if 'defaulttvdbseason' in attrs and 'tvdbid' in attrs and attrs['defaulttvdbseason'] == "a":
-            absolute_order_set.add(attrs['tvdbid'])
-        anilist[aid] = attrs
+        a_attrs = anime.attrib
+        del a_attrs['anidbid']
+
+        # keep track if this anime has the absolute order flag set and if it
+        # has any other non-special seasons explicitly specified
+        has_absolute_order = False
+        has_season_mapping = False
+        if 'defaulttvdbseason' in a_attrs and 'tvdbid' in a_attrs and a_attrs['defaulttvdbseason'] == "a":
+            has_absolute_order = True
+
+        if has_absolute_order and not a_attrs['tvdbid'] in absolute_order:
+            absolute_order[a_attrs['tvdbid']] = set()
+
+        anilist[aid] = a_attrs
         mappings=anime.find('mapping-list')
         if mappings:
             anilist[aid]['map'] = []
             for m in mappings.iter("mapping"):
                 attrs = m.attrib
+
+                # Check for non-special seasons for series with
+                # defaulttvdbseason set to absolute
+                if has_absolute_order:
+                    if all([x in attrs for x in ['tvdbseason', 'start']]) and int(attrs['tvdbseason']) > 0:
+                        absolute_order[a_attrs['tvdbid']].add(int(attrs['tvdbseason']))
+                        has_season_mapping = True
+
                 if m.text:
                     attrs['epmap'] = {}
                     episodes = m.text.strip(';').split(';')
@@ -131,8 +154,23 @@ def update_anilist():
                             attrs['epmap'][a] = t
 
                 anilist[aid]['map'].append(attrs)
+
+        # no non-special season specified; we must treat this tvdb entry as
+        # absolute order.
+        if has_absolute_order and not has_season_mapping:
+            absolute_order_set.add(a_attrs['tvdbid'])
+            del absolute_order[a_attrs['tvdbid']]
         name=anime.find('name')
         anilist[aid]['name']=name.text
+
+    # Now that we have gone through all entries, check if there are season
+    # mappings for all seasons for the default-absolute-order series. If there
+    # is, we don't need to treat is as absolute ordered.
+    for tvdbid,seasons in absolute_order.items():
+        season_list = sorted(seasons)
+        if len(season_list) != season_list[-1]:
+            absolute_order_set.add(tvdbid)
+
 
 def update_animetitles():
     global titles
