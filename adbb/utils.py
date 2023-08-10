@@ -620,6 +620,9 @@ def jellyfin_anime_sync():
             if reinit_adbb:
                 adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
                 reinit_adbb=False
+            adbb.update_anilist()
+            adbb.update_anime_titles()
+
 
             # we actually do not need the jellyfin client that much...
             jf_client = init_jellyfin(args.jellyfin_url, user, password)

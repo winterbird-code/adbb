@@ -85,6 +85,17 @@ These will be linked to from the TVDB, MOVIEDB and ANIDB media libraries:
 ```
 When files are detected in the `staging-path` they will be identified by adbb, imported to the main library and linked to from the proper jellyfin library. This path is polled after every other directory is traversed (so roughly every `sleep-delay` + a few seconds). I would recommend to add files atomicaly to this path (first place them somewhere else on the same filesystem and then use `mv` to move them to the staging directory). To help adbb to identify the file it should preferably be added to a sub-directory named after the anidb title.
 
+
+```
+jellyfin_anime_sync \
+  --sql-url "sqlite:///home/user/.adbb.db" \
+  --authfile /home/user/.netrc \
+  --jellyfin-url "https://my.jellyfin.server" \
+  /media/Anime
+```
+In this example no file will be renamed, the tool will just search your jellyfin library for files where realpath is under `/media/Anime` and update mylist and watched status for those (files located anywhere else is ignored).
+
+
 ### Authentication
 
 Although the tool support command line parameters for anidb/jellyfin/database credentials, it's highly recommended to use a [`.netrc`](https://everything.curl.dev/usingcurl/netrc) file instead.

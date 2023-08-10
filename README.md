@@ -79,37 +79,40 @@ ambigious. A search for 'Ranma', for example, can return either the series 'Ranm
 synonym) or 'Ranma 1/2 Nettou Hen' which has "Ranma" as an official title). 
 
 #### Attributes
-* aid - AniDB anime ID
-* titles - A list of all titles for this Anime
-* title - main title of this Anime
-* updated - datetime when information about this Anime was last fetched from AniDB
+* `aid` - AniDB anime ID
+* `titles` - A list of all titles for this Anime
+* `title` - main title of this Anime
+* `updated` - datetime when information about this Anime was last fetched from AniDB
+* `tvdbid` - TVDB ID for this anime or None if not available.
+* `tmdbid` - TMDB ID for this anime or None if not available.
+* `imdbid` - IMDB ID for this anime or None if not available.
 
 The following attributes as returned from the AniDB API
-* year
-* type
-* nr_of_episodes
-* highest_episode_number
-* special_ep_count
-* air_date
-* end_date
-* url
-* picname
-* rating
-* vote_count
-* temp_rating
-* temp_vote_count
-* average_review_rating
-* review_count
-* is_18_restricted
-* ann_id
-* allcinema_id
-* animenfo_id
-* anidb_updated
-* special_count
-* credit_count
-* other_count
-* trailer_count
-* parody_count
+* `year`
+* `type`
+* `nr_of_episodes`
+* `highest_episode_number`
+* `special_ep_count`
+* `air_date`
+* `end_date`
+* `url`
+* `picname`
+* `rating`
+* `vote_count`
+* `temp_rating`
+* `temp_vote_count`
+* `average_review_rating`
+* `review_count`
+* `is_18_restricted`
+* `ann_id`
+* `allcinema_id`
+* `animenfo_id`
+* `anidb_updated`
+* `special_count`
+* `credit_count`
+* `other_count`
+* `trailer_count`
+* `parody_count`
 
 ### Episode
 ```python
@@ -119,20 +122,21 @@ Episode object can be created by specifying both anime and epno, or using just e
 or an Anime object. epno should be either a string or int representing the episode number. eid should be an int.
 
 #### Attributes
-* eid - AniDB episode ID
-* anime - Anime object for the anime series that this episode belongs to
-* episode_number - The episode number (note that this is a string)
-* updated - datetime when information about this episode was last fetched from AniDB
+* `eid` - AniDB episode ID
+* `anime` - Anime object for the anime series that this episode belongs to
+* `episode_number` - The episode number (note that this is a string)
+* `updated` - datetime when information about this episode was last fetched from AniDB
+* `tvdb_episode` - A tuple containing `(season, episode)` if this episode can be mapped to a TVDB episode. Note that `episode` is usualy a string containing the episode number, but can also be a tuple with (episode_number, partnumber) or a string containing episode numbers separated by '+' if the anidb episode is mapped to part of a TVDB episode or vice versa.
 
 The following attributes as returned from the AniDB API
-* length
-* rating
-* votes
-* title_eng
-* title_romaji
-* title_kanji
-* aired
-* type
+* `length`
+* `rating`
+* `votes`
+* `title_eng`
+* `title_romaji`
+* `title_kanji`
+* `aired`
+* `type`
 
 ### File
 ```python
@@ -164,35 +168,35 @@ The update_mylist() function can be used both to add and to edit a file in mylis
 'on hdd', 'on cd' or 'deleted'. watched can be either True, False or an datetime object describing when it was watched.
 
 #### Attributes
-* anime - Anime object for which anime this file contains
-* episode - Episode object for which episode this file contains
-* group - Group object for file authors
-* multiep - List of episode numbers this file contains. The episode number parsing supports multiple episodes, but
+* `anime` - Anime object for which anime this file contains
+* `episode` - Episode object for which episode this file contains
+* `group` - Group object for file authors
+* `multiep` - List of episode numbers this file contains. The episode number parsing supports multiple episodes, but
   fetching from AniDB does not so this is not reliable and I'm not really sure what to do with it...
-* fid - File ID from AniDB
-* path - Full Path to this file (if created with a path)
-* size - file size in bytes
-* ed2khash - ed2k-hash, because AniDB still uses it...
-* updated - datetime when information about this file was last fetched from AniDB
+* `fid` - File ID from AniDB
+* `path` - Full Path to this file (if created with a path)
+* `size` - file size in bytes
+* `ed2khash` - ed2k-hash, because AniDB still uses it...
+* `updated` - datetime when information about this file was last fetched from AniDB
 
 The following attributes as returned from the AniDB API
-* lid
-* gid
-* is_deprecated
-* is_generic
-* crc_ok
-* file_version
-* censored
-* length_in_seconds
-* description
-* aired_date
-* mylist_state
-* mylist_filestate
-* mylist_viewed
-* mylist_viewdate
-* mylist_storage
-* mylist_source
-* mylist_other
+* `lid`
+* `gid`
+* `is_deprecated`
+* `is_generic`
+* `crc_ok`
+* `file_version`
+* `censored`
+* `length_in_seconds`
+* `description`
+* `aired_date`
+* `mylist_state`
+* `mylist_filestate`
+* `mylist_viewed`
+* `mylist_viewdate`
+* `mylist_storage`
+* `mylist_source`
+* `mylist_other`
 
 ### Group
 ```python
@@ -204,25 +208,25 @@ represent a group in AniDB. In that case both the name and the short name will b
 other atributes will be empty.
 
 #### Attributes
-* updated - datetime when information about this file was last fetched from AniDB
+* `updated` - datetime when information about this file was last fetched from AniDB
 
 The following attributes as returned from the AniDB API
-* gid
-* rating
-* votes
-* acount
-* fcount
-* name
-* short
-* irc_channel
-* irc_server
-* url
-* picname
-* founded
-* disbanded
-* dateflag
-* last_release
-* last_activity
+* `gid`
+* `rating`
+* `votes`
+* `acount`
+* `fcount`
+* `name`
+* `short`
+* `irc_channel`
+* `irc_server`
+* `url`
+* `picname`
+* `founded`
+* `disbanded`
+* `dateflag`
+* `last_release`
+* `last_activity`
 
 
 ## Utilities
