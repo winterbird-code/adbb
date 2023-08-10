@@ -935,10 +935,9 @@ class File(AniDBObj):
             filename = os.path.basename(self._path)
         else:
             filename = None
-        return "File(filename='{}', anime={}, episode={}, generic={}, watched={})". \
+        return "File(filename='{}', episode={}, generic={}, watched={})". \
             format(
                 filename,
-                self._anime,
                 self._episode,
                 self._is_generic,
                 watched
