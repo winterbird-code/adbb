@@ -149,7 +149,10 @@ def update_anilist():
                         attrs['epmap'][a] = t
 
                     # If multiple anidb episodes are mapped to the same tvdb
-                    # episode we need to figure out what partnumbers
+                    # episode we need to figure out partnumbers; this is
+                    # unfortunately broken for movies because of how anidb adds
+                    # parts with episode numbers. When scraping movies the part
+                    # should probably be ignored.
                     anidb_eps = sorted(attrs['epmap'].keys(), key=lambda x: int(x))
                     for anidb_ep in anidb_eps:
                         my_epno = attrs['epmap'][anidb_ep]
