@@ -146,12 +146,19 @@ def update_anilist():
                     episodes = m.text.strip(';').split(';')
                     for e in episodes:
                         (a, t) = e.split('-')
-                        if '+' in a:
-                            a = a.split('+')
-                            for i in len(a):
-                                attrs['epmap'][a[i]] = (t, i+1)
+                        attrs['epmap'][a] = t
+
+                    # If multiple anidb episodes are mapped to the same tvdb
+                    # episode we need to figure out what partnumbers
+                    anidb_eps = sorted(attrs['epmap'].keys(), key=lambda x: int(x))
+                    for anidb_ep in anidb_eps:
+                        my_epno = attrs['epmap'][anidb_ep]
+                        others = [ x for x in anidb_eps if attrs['epmap'][x] == my_epno]
+                        if len(others) == 1:
+                            continue
                         else:
-                            attrs['epmap'][a] = t
+                            part = others.index(anidb_ep)+1
+                            attrs['epmap'][anidb_ep] = (my_epno, part)
 
                 anilist[aid]['map'].append(attrs)
 
