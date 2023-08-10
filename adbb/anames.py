@@ -359,7 +359,7 @@ def get_tvdb_episode(aid, epno):
                 if str_epno in m['epmap']:
                     # Exact match for episode
                     tvdb_epno = m['epmap'][str_epno]
-                    if tvdb_epno == "0":
+                    if tvdb_epno == "0" or type(tvdb_epno) == tuple and tvdb_epno[0] == "0":
                         return (None, None)
                     if 'tvdbseason' in m:
                         tvdb_season = m['tvdbseason']

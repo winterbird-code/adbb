@@ -621,7 +621,7 @@ def jellyfin_anime_sync():
                 adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
                 reinit_adbb=False
             adbb.update_anilist()
-            adbb.update_anime_titles()
+            adbb.update_animetitles()
 
 
             # we actually do not need the jellyfin client that much...
@@ -660,7 +660,7 @@ def jellyfin_anime_sync():
             if args.sleep_delay:
                 delay = args.sleep_delay
             elif args.sleep_delay is None and args.repeat:
-                delay = max(min((24*60*60-len(full_path_list)*9)/len(full_path_list), 300), 0)
+                delay = max(min((23*60*60-len(full_path_list)*9)/len(full_path_list), 300), 0)
             else:
                 delay = 0
 
