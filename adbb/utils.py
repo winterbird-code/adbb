@@ -8,6 +8,7 @@ import random
 import re
 import shutil
 import socket
+import signal
 import sys
 import time
 import urllib
@@ -432,7 +433,11 @@ def arrange_files(
                 if adbb.anames.tvdbid_has_absolute_order(epfile.anime.tvdbid):
                     epno = None
 
-            if epfile.anime.tvdbid and link_tv_dir and epno:
+            if epfile.anime.tvdbid and link_tv_dir and epno and not ( \
+                    epfile.anime.nr_of_episodes == 1 and \
+                    not epfile.anime.relations and \
+                    (epfile.anime.tmdbid or epfile.anime.imdb)
+                    ):
                 if type(epno) is tuple:
                     partstr = f'-part{epno[1]}'
                     epno = epno[0]
@@ -597,6 +602,10 @@ def init_jellyfin(url, user, password):
     client.auth.login(url, user, password)
     return client
 
+def signal_handler(signo, _stack_frame):
+    adbb.log.info(f"Signal {signo} received, logging out and shutting down...")
+    adbb.close()
+    sys.exit(0)
 
 def jellyfin_anime_sync():
     import jellyfin_apiclient_python.exceptions
@@ -605,6 +614,9 @@ def jellyfin_anime_sync():
     log = get_command_logger(debug=args.debug, syslog=args.use_syslog)
     reinit_adbb=True
     failures=0
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGHUP, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
 
     while True:
         delay=0
@@ -762,9 +774,6 @@ def jellyfin_anime_sync():
             adbb.close()
             reinit_adbb=True
             time.sleep(failures*60)
-        except KeyboardInterrupt:
-            adbb.log.info("Logging out...")
-            break
 
         if not (args.repeat or failures):
             break
