@@ -272,7 +272,7 @@ class AniDBListener(threading.Thread):
             else:
                 # No responsetag... we're probably banned
                 try:
-                    code=int(repr(data)[3])
+                    code=int(repr(data)[:3])
                 except ValueError:
                     adbb.log.critical(f"Unparseable response from API: {repr(data)}")
                     sys.exit(2)
