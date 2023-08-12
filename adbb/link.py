@@ -65,6 +65,7 @@ class AniDBLink(threading.Thread):
         self.start()
 
     def _logout_handler(self, resp):
+        adbb.log.info(f"Logged out from AniDB")
         self._stop.set()
 
     def _reauthenticate(self):
@@ -94,6 +95,7 @@ class AniDBLink(threading.Thread):
         with self._auth_lock:
             self._authed.set()
             self._authenticating.clear()
+        adbb.log.info(f"Logged in to AniDB with session {self._session}")
 
     def _new_tag(self):
         if self._current_tag >= 999:
