@@ -675,6 +675,7 @@ def jellyfin_anime_sync():
                 delay = max(min((23*60*60-len(full_path_list)*9)/len(full_path_list), 300), 0)
             else:
                 delay = 0
+            adbb.log.info(f"Starting sync of {len(full_path_list)} paths with {delay} seconds delay between paths.")
 
             for path in full_path_list:
                 for root, dirs, files in os.walk(path):
