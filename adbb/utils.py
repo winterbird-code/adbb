@@ -179,31 +179,34 @@ def remove_dir_if_empty(directory):
         except OSError as e:
             log.error(f"Could not remove directory {directory}: {e}")
 
-def link_to_directory(target, linkname, exclusive_dir=None):
+def link_to_directory(target, linkname, exclusive_dir=None, dry_run=False):
     log = logging.getLogger(__name__)
     linkdir, name = os.path.split(linkname)
     targetdir, targetname = os.path.split(target)
     if os.path.islink(linkname) and os.readlink(linkname) == target:
         pass
     else:
-        os.makedirs(linkdir, exist_ok=True)
-        tmplink = os.path.join(linkdir, f'.{name}.tmp')
-        os.symlink(target, tmplink)
-        os.rename(tmplink, linkname)
-        stats = os.stat(target)
-        os.utime(linkname, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
-        log.info(f"Created link {linkname} -> {target}")
+        if not dry_run:
+            os.makedirs(linkdir, exist_ok=True)
+            tmplink = os.path.join(linkdir, f'.{name}.tmp')
+            os.symlink(target, tmplink)
+            os.rename(tmplink, linkname)
+            stats = os.stat(target)
+            os.utime(linkname, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
+        log.info(f"Link {linkname} -> {target}")
     for d in JELLYFIN_SPECIAL_DIRS:
         extrasdir_src = os.path.join(targetdir, d)
         extrasdir_lnk = os.path.join(linkdir, d)
         if os.path.isdir(extrasdir_src) and not os.path.islink(extrasdir_lnk):
-            os.symlink(extrasdir_src, extrasdir_lnk)
-            stats = os.stat(extrasdir_src)
-            os.utime(extrasdir_lnk, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
-            log.info(f"Linked extras dir {extrasdir_lnk} -> {extrasdir_src}")
+            if not dry_run:
+                os.symlink(extrasdir_src, extrasdir_lnk)
+                stats = os.stat(extrasdir_src)
+                os.utime(extrasdir_lnk, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
+            log.info(f"Link extras dir {extrasdir_lnk} -> {extrasdir_src}")
     # Will never remove the linkdir from here, but will clean up any broken
     # links
-    remove_dir_if_empty(linkdir)
+    if not dry_run:
+        remove_dir_if_empty(linkdir)
     if exclusive_dir and os.path.isdir(exclusive_dir):
         changed=False
         for root, dirs, files in os.walk(exclusive_dir, followlinks=False):
@@ -211,10 +214,11 @@ def link_to_directory(target, linkname, exclusive_dir=None):
             for f in files:
                 p = os.path.join(root, f)
                 if os.path.islink(p) and os.readlink(p) == target:
-                    os.remove(p)
-                    log.info(f"Removed link {p} from exclusive directory; it's now linked to from {linkdir}")
-                    changed=True
-        if changed:
+                    if not dry_run:
+                        os.remove(p)
+                        changed=True
+                    log.info(f"Remove link {p} from exclusive directory; it's now linked to from {linkdir}")
+        if changed and not dry_run:
             remove_dir_if_empty(exclusive_dir)
 
 # The callback will be called for each file after the new filename has been decided, but
@@ -357,7 +361,7 @@ def arrange_files(
             if os.path.exists(newname):
                 adbb.log.error(f'Not moving "{f}" because file "{newname}" already exists')
                 continue
-            adbb.log.info(f'Moving "{f}" -> "{newname}"')
+            adbb.log.info(f'Move "{f}" -> "{newname}"')
             if not dry_run:
                 nd, nh = os.path.split(newname)
                 os.makedirs(nd, exist_ok=True)
@@ -464,21 +468,21 @@ def arrange_files(
                 else:
                     linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
                 link = os.path.join(d, linkname)
-                link_to_directory(newname, link, exclusive_dir=exclusive_dir)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
             elif epfile.anime.nr_of_episodes == 1 and epfile.anime.tmdbid and link_movies_dir:
                 d = os.path.join(link_movies_dir, f'adbb [tmdbid-{epfile.anime.tmdbid}]')
                 linkname = os.path.basename(newname)
                 link = os.path.join(d, linkname)
-                link_to_directory(newname, link, exclusive_dir=exclusive_dir)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
             elif epfile.anime.nr_of_episodes == 1 and epfile.anime.imdbid and link_movies_dir:
                 d = os.path.join(link_movies_dir, f'adbb [imdbid-{epfile.anime.imdbid}]')
                 linkname = os.path.basename(newname)
                 link = os.path.join(d, linkname)
-                link_to_directory(newname, link, exclusive_dir=exclusive_dir)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
             elif exclusive_dir:
                 linkname = os.path.basename(newname)
                 link = os.path.join(exclusive_dir, linkname)
-                link_to_directory(newname, link)
+                link_to_directory(newname, link, dry_run=dry_run)
 
 def arrange_anime():
     args = arrange_anime_args()
@@ -581,6 +585,11 @@ def get_jellyfin_anime_sync_args():
             '-W', '--no-watched',
             help='Disable mylist update of watched status',
             action="store_true"
+            )
+    parser.add_argument(
+            '-n', '--dry-run',
+            help="do not actually move stuff..",
+            action='store_true'
             )
     parser.add_argument(
             'path',
@@ -718,14 +727,21 @@ def jellyfin_anime_sync():
                             if not fo.mylist_state or fo.mylist_viewed != bool(watched):
                                 for ep in fo.multiep:
                                     if str(ep).lower() == str(fo.episode.episode_number).lower() and not fo.is_generic:
-                                        fo.update_mylist(state='on hdd', watched=watched)
+                                        if not args.dry_run:
+                                            fo.update_mylist(state='on hdd', watched=watched)
+                                        else:
+                                            adbb.log.info(f'update mylist for {fo}, watched: "{watched}"')
                                     else:
                                         mylist_fo = adbb.File(anime=anime, episode=ep)
-                                        mylist_fo.update_mylist(state='on hdd', watched=watched)
+                                        if not args.dry_run:
+                                            mylist_fo.update_mylist(state='on hdd', watched=watched)
+                                        else:
+                                            adbb.log.info(f'update mylist for {mylist_fo}, watched: "{watched}"')
 
                     if args.rearrange:
                         arrange_files([os.path.join(root, f) for f in files],
                                       target_dir=pdir,
+                                      dry_run=args.dry_run,
                                       link_movies_dir=args.moviedb_library,
                                       link_tv_dir=args.tvdb_library,
                                       link_exclusive_dir=args.anidb_library
@@ -734,6 +750,7 @@ def jellyfin_anime_sync():
                             files = create_filelist([args.staging_path])
                             arrange_files(files,
                                           target_dir=args.path,
+                                          dry_run=args.dry_run,
                                           link_movies_dir=args.moviedb_library,
                                           link_tv_dir=args.tvdb_library,
                                           link_exclusive_dir=args.anidb_library
