@@ -364,7 +364,7 @@ def get_tvdb_episode(aid, epno):
                     if 'tvdbseason' in m:
                         tvdb_season = m['tvdbseason']
                     return (tvdb_season, tvdb_epno)
-            if tvdb_season == "a" and 'tvdbseason' in m and m['tvdbseason'] != "0":
+            if tvdbid_has_absolute_order(maps['tvdbid']) and 'tvdbseason' in m and m['tvdbseason'] != "0":
                 # Do not mix absolute and seasoned order...
                 continue
             if 'start' in m and int_epno < int(m['start']):

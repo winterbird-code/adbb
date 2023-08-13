@@ -459,7 +459,7 @@ def arrange_files(
                         epno = f'{epno}-{last_epno}'
                 elif type(epno) is list:
                     epno = f'{epno[0]}-{epno[-1]}'
-                if season == 'a':
+                if adbb.anames.tvdbid_has_absolute_order(epfile.anime.tvdbid):
                     linkname = f"{aname} - {epno}{partstr}.{ext}"
                 else:
                     linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
