@@ -18,6 +18,8 @@ import adbb.anames
 from adbb.errors import *
 import sqlalchemy.exc
 
+status_msg=None
+
 # These extensions are considered video types
 SUPPORTED_FILETYPES = [
         'mkv',
@@ -603,6 +605,10 @@ def init_jellyfin(url, user, password):
     return client
 
 def signal_handler(signo, _stack_frame):
+    global status_msg
+    if signo == signal.SIGUSR1:
+        adbb.log.info(status_msg)
+        return
     adbb.log.info(f"Signal {signo} received, logging out and shutting down...")
     adbb.close()
     sys.exit(0)
@@ -610,6 +616,7 @@ def signal_handler(signo, _stack_frame):
 def jellyfin_anime_sync():
     import jellyfin_apiclient_python.exceptions
     args = get_jellyfin_anime_sync_args()
+    global status_msg
 
     log = get_command_logger(debug=args.debug, syslog=args.use_syslog)
     reinit_adbb=True
@@ -617,9 +624,11 @@ def jellyfin_anime_sync():
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGUSR1, signal_handler)
 
     while True:
         delay=0
+        iterations=0
         starttime = datetime.datetime.now()
         try:
             if not args.jellyfin_user or not args.jellyfin_password:
@@ -678,6 +687,7 @@ def jellyfin_anime_sync():
             adbb.log.info(f"Starting sync of {len(full_path_list)} paths with {delay} seconds delay between paths.")
 
             for path in full_path_list:
+                iterations += 1
                 for root, dirs, files in os.walk(path):
                     dirs[:] = []
                     files[:] = [ x for x in files if x.rsplit('.')[-1] in SUPPORTED_FILETYPES ]
@@ -729,6 +739,7 @@ def jellyfin_anime_sync():
                                           link_exclusive_dir=args.anidb_library
                                           )
                     failures = 0
+                    status_msg = f'{iterations}/{len(full_path_list)} paths processed.'
                     time.sleep(delay)
 
             # Clean up broken symlinks/empty dirs
