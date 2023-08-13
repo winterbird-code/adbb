@@ -367,13 +367,15 @@ def get_tvdb_episode(aid, epno):
             if tvdbid_has_absolute_order(maps['tvdbid']) and 'tvdbseason' in m and m['tvdbseason'] != "0":
                 # Do not mix absolute and seasoned order...
                 continue
+            if not all([ x in m for x in ['start', 'end']]):
+                continue
             if 'start' in m and int_epno < int(m['start']):
                 continue
             if 'end' in m and int_epno > int(m['end']):
                 continue
+            if 'tvdbseason' in m:
+                tvdb_season = m['tvdbseason']
             if 'offset' in m:
-                if 'tvdbseason' in m:
-                    tvdb_season = m['tvdbseason']
                 return (tvdb_season, str(int(m['offset']) + int_epno))
     if anidb_season == "0" or not tvdb_season:
         # Specials must be explicitly mapped
