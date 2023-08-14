@@ -1,5 +1,5 @@
 # adbb
-Object Oriented UDP Client for AniDB, very loosly based on adba.
+Object Oriented UDP Client for AniDB, originally forked from adba.
 
 I created this mainly to be able to add new files to my "mylist" on anidb when I add them to my local collection.
 As I tend to rip my own files and have no intention of spreading them to a wide audience, I needed to add these as 
@@ -10,14 +10,15 @@ anidb and uses the cache whenever possible. The cache is stored in mysql (or any
 database). For how long does it cache? It depends! Shortest caching period is one day, after that some not very 
 inteligent algorithm will add some probability score which is used to decide if the cache should be updated or not. 
 It's untuned and will probably be difficult to get right for all use cases... I'm listening to any ideas about how to 
-make this better :)
+make this better.
 
 Also, you can always force an update of the cache by using the objects update() method.
 
 The Anime title search is implemented using the animetitles.xml file hosted at anidb. It is automatically downloaded
 and stored localy (for now hardcoded to /var/tmp/adbb/animetitles.xml.gz). This animetitles file is also cached for 7 
-days (using mtime to calculate age) and then is automatically updated. You can of course "update" it manually by 
-simply removing the cached file :)
+days (using mtime to calculate age) and then is automatically updated. You can of course "update" it manually by removing the cached file.
+
+Since version 1 adbb also supports tvdb/tmdb/imdb-mapping via [Anime-Lists](https://github.com/Anime-Lists/anime-lists).
 
 ## Requirements
 * recent python
@@ -86,6 +87,7 @@ synonym) or 'Ranma 1/2 Nettou Hen' which has "Ranma" as an official title).
 * `tvdbid` - TVDB ID for this anime or None if not available.
 * `tmdbid` - TMDB ID for this anime or None if not available.
 * `imdbid` - IMDB ID for this anime or None if not available.
+* `relations` - A list of tuples containing relations to this anime. The first entry in the tuple is a string describing the relation type and the second is an Anime-object for the related anime.
 
 The following attributes as returned from the AniDB API
 * `year`
@@ -243,6 +245,18 @@ You should probably run it with --dry-run first to make sure it behaves as expec
 ### jellyfin_anime_sync
 
 Tool to sync mylist watched status with jellyfin. Requires [jellyfin-apiclient-python](https://github.com/jellyfin/jellyfin-apiclient-python).
+For more information, and usage, for this tool, see [JELLYFIN.md](JELLYFIN.md).
+
+## Upgrading
+
+### Object API
+I'll do my best to keep the API stable, so if you just use the Objects the code should continue to work with new releases. 
+
+### Datbase
+You *should* recreate the databse after every release. I haven't figure out how to make sane database migrations on schema changes, so for now you should repopulate the cache when upgrading (just remove the sqlite databasefile or drop and recreate the postgres/mysql database).
+
+### Utilities
+I'll be restrictive about behavioural changes, and try to document them when they occur, but no promises as of now.
 
 ## TODO:
 In no particular order:

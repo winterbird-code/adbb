@@ -31,7 +31,7 @@ from adbb.animeobjs import Anime, AnimeTitle, Episode, File, Group
 from adbb.anames import get_titles, update_animetitles, update_anilist
 
 anidb_client_name = "adbb"
-anidb_client_version = 4
+anidb_client_version = 10
 anidb_api_version = 3
 
 log = None

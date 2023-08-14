@@ -25,26 +25,40 @@ I decided to solve the three first points using this adbb python library since t
 This tool is installed with the adbb library and has three main purposes:
 
   - Sync mylist status, including watched status, with AniDB.
+  - Import new files to the libraries.
   - Maintain 4 (or 6, depending on how you count) different libraries:
-    - "main" library organized after AniDB metadata,  this is where all the actual files are located. If it contains the subfolders "Movies" and "Series" the files will be sorted accordingly. Not to be added to jellyfin.
+    - "main" library organized after AniDB metadata,  this is where all the actual files are located. If it contains the subfolders "Movies" and "Series" the files will be sorted accordingly. Can be added to jellyfin if you only want to use the AniDB plugin.
     - "TVDB" library organized after TVDB mappings in Anime-Lists, use with [jellyfin-plugin-tvdb](https://github.com/jellyfin/jellyfin-plugin-tvdb)
     - "MOVIEDB" library organized after TMDB and IMDB mappings in Anime-Lists, use with the built in TMDB scraper
     - "ANIDB" library organized after AniDB metadata, but contains only files that could not be mapped to TVDB or MOVIEDB libraries, contains sub-libraries "Movies" and "Series" use with the [AniDB-plugin](https://github.com/jellyfin/jellyfin-plugin-anidb)
-  - Import new files to the libraries.
 
 Some important notes:
 
   - jellyfin_anime_sync has an additional dependency on [jellyfin-apiclient-python](https://github.com/jellyfin/jellyfin-apiclient-python)
   - The tool is only tested on Linux
   - The tool is designed to eventually get the job done. For my ~3000 series it takes about 7 hours to do a complete sync, and that's when the cache is well maintained. The tool will also do exponential backoff if there is a timeout communicating with the API or if the [API tells it to](https://wiki.anidb.net/UDP_API_Definition#General) (starting with 30 minutes).
-  - When you first sync/import your library, and don't have a populated cache, the tool will need to do lots of API requests and if you have a large library you may get IP banned from the AniDB UDP API and the tool will crash or hang (all according to the [API specification](https://wiki.anidb.net/UDP_API_Definition#General)). If this happens you should wait at least 24 hours before retrying the import. If you're still banned after that you should probably ask the staff in the [AniDB forum](https://anidb.net/forum/19/thread) and let me know if there is any need for changes in this library. To avoid bans you should probably use the `--sleep-delay` option during inital import. This parameter introduces a sleep between each imported series, reducing the load on the API but makes the sync slower. Setting this parameter to 300 (5 minutes) will give you about 280 series synced per 24 hours. I don't know if that's enough to avoid bans, but I think that's a good starting point.
+  - When you first sync/import your library, and don't have a populated cache, the tool will need to do lots of API requests and if you have a large library you may get IP banned from the AniDB UDP API and the tool will crash or hang (all according to the [API specification](https://wiki.anidb.net/UDP_API_Definition#General)). If this happens you should wait at least 24 hours before retrying the import. If you're still banned after that you should probably ask the staff in the [AniDB forum](https://anidb.net/forum/19/thread) and let me know if there is any need for changes in this library. Also read the First run section below.
   - The naming schemas for files is hardcoded. There are many pitfalls in file naming, but I'm open for PRs for templating this as long as you manage to avoid those :slightly_smiling_face:
   - Only one file per episode/movie is supported, variants/versions of the same episode/movie will not appear in the TVDB or MOVIEDB libraries and adbb has trouble with multiple file (mylist-)entries for the same episode.
   - The path to the main library must be given as the "real" absolute path (ie. no symlinks along the way)
-  - On first run, you probably should use the `--no-watched` flag unless you want to mark everything in your anidb mylist as unwatched (since the files are not added to the jellyfin library yet during the first run it will treat everything as unwatched).
-  - This tool will rename, and possibly move around, the files in the original library, to get a preview of what would be done you can run the included `arrange_anime` tool on the path with the `--dry-run` flag. Run `arrange_anime --help` for more help.
+  - The only situation where this tool will remove anything from your mylist is when it finds a new file for an episode already in your mylist; In this case it will remove the old mylist entry and replace it with the new file.
 
-### Example usage
+### First run
+When trying out this tool for the first time, make sure to read these instruction before running it:
+
+  1. Decide how you want to use the tool and figure out what flags to use (see examples below and `jellyfin_anime_sync --help`):
+    - Managing jellyfin libraries for the anidb scraper
+    - Managing jellyfin libraries for the tvdb/tmdb scrapers
+    - Just syncing mylist and watched status
+    - Syncing mylist and managing libraries
+  2. If you haven't used adbb before, or don't have a fresh cache database, make sure to set `--sleep-delay` to at least a couple of minutes (300 is probably a good start) to avoid API bans. If you get banned anyway, do *not* restart
+     the tool until at least 24 hours has passed, and make sure to bump the sleep delay a couple of more minutes.
+  3. Run with the `--dry-run` flag first and check the output/logs that the tool does what you expect it to.
+  4. Be patient, for a resonable sized library it will probably take at least 24 hours or more to run the first iteration. You can send the `USR1` signal with `killall -USR1 jellyfin_anime_sync` to make it log the current status.
+     You can also use `--debug` to get *very* verbose information about what's going on.
+  5. If you decide to use this tool for managing the jellyfin libraries, make sure to use the `--no-watched` flag until the jellyfin libraries has been populated and you've updated watched status in jellyfin.
+
+### Example usage - Managing libraries
 ```
 jellyfin_anime_sync \
   --sql-url "sqlite:///home/user/.adbb.db" \
@@ -55,7 +69,6 @@ jellyfin_anime_sync \
   --moviedb-library /var/lib/jellyfin/libraries/Movies/ \
   --anidb-library /var/lib/jellyfin/libraries/Anime \
   --staging-path /media/to_import/ \
-  --sleep-delay 300 \
   /media/Anime
 ```
 In this example you have your main media file library under /media/Anime, possibly (preferably) with the subdirectories /media/Anime/Movies and /media/Anime/Series:
@@ -83,8 +96,11 @@ These will be linked to from the TVDB, MOVIEDB and ANIDB media libraries:
 '/var/lib/jellyfin/libraries/TV Series/adbb [tvdbid-78920]/Aa! Megami-sama! Sorezore no Tsubasa S2E23.avi' -> '/media/Anime/Series/Aa! Megami-sama! Sorezore no Tsubasa/Aa! Megami-sama! Sorezore no Tsubasa S0E1 - Aa! Sorezore no Unmei! [DVD].avi'
 '/var/lib/jellyfin/libraries/TV Series/adbb [tvdbid-78920]/Aa! Megami-sama! Sorezore no Tsubasa S2E24.avi' -> '/media/Anime/Series/Aa! Megami-sama! Sorezore no Tsubasa/Aa! Megami-sama! Sorezore no Tsubasa S0E2 - Aa! Suki wa Kokoro o Yusaburu Uta! [DVD].avi'
 ```
-When files are detected in the `staging-path` they will be identified by adbb, imported to the main library and linked to from the proper jellyfin library. This path is polled after every other directory is traversed (so roughly every `sleep-delay` + a few seconds). I would recommend to add files atomicaly to this path (first place them somewhere else on the same filesystem and then use `mv` to move them to the staging directory). To help adbb to identify the file it should preferably be added to a sub-directory named after the anidb title.
+When files are detected in the `staging-path` they will be identified by adbb, imported to the main library and linked to from the proper jellyfin library. This path is polled after each other directory is traversed (so roughly every `sleep-delay` + a few seconds). I would recommend to add files atomicaly to this path (first place them somewhere else on the same filesystem and then use `mv` to move them to the staging directory). To help adbb to identify the file it should preferably be added to a sub-directory named after the anidb title.
 
+if the `--Xdb-library' arguments are obmitted only the main library will be sorted and can be used with the AniDB Jellyfin plugin. To only sync mylist state you obmit the `--rearrange` flag; see example below.
+
+### Example usage - Syncing mylist/watched status
 
 ```
 jellyfin_anime_sync \
@@ -94,6 +110,7 @@ jellyfin_anime_sync \
   /media/Anime
 ```
 In this example no file will be renamed, the tool will just search your jellyfin library for files where realpath is under `/media/Anime` and update mylist and watched status for those (files located anywhere else is ignored).
+This should work with most naming formats.
 
 
 ### Authentication

@@ -28,5 +28,12 @@ setup(
                 'arrange_anime=adbb.utils:arrange_anime',
                 'jellyfin_anime_sync=adbb.utils:jellyfin_anime_sync'
                 ]
+            },
+        install_requires=[
+            'pycryptodome',
+            'sqlalchemy'
+            ],
+        extras_requires={
+            'jellyfin': ['jellyfin_apiclient_python']
             }
         )
