@@ -112,6 +112,26 @@ jellyfin_anime_sync \
 In this example no file will be renamed, the tool will just search your jellyfin library for files where realpath is under `/media/Anime` and update mylist and watched status for those (files located anywhere else is ignored).
 This should work with most naming formats.
 
+### Example usage - "daemon"-mode
+```
+jellyfin_anime_sync \
+  --sql-url "sqlite:///home/user/.adbb.db" \
+  --authfile /home/user/.netrc \
+  --jellyfin-url "https://my.jellyfin.server" \
+  --rearrange \
+  --tvdb-library /var/lib/jellyfin/libraries/TV\ Series/ \
+  --moviedb-library /var/lib/jellyfin/libraries/Movies/ \
+  --anidb-library /var/lib/jellyfin/libraries/Anime \
+  --staging-path /media/to_import/ \
+  --repeat \
+  --use-syslog \
+  /media/Anime
+```
+With the `--repeat` flag `jellyfin_anime_sync` will not exit after traversing the Anime library, but will automatically restart and traverse the library again. By default in `--repeat`-mode the tool will automatically set a sleep delay between 0 and 300 seconds depending on the size of the media library. It's roughly tuned to do a complete run in about 22 hours with a fresh cache.
+
+`--use-syslog` can be used to make the tool log messages to syslog instead of stdout/err. You should probably monitor this log for any WARNING, ERROR or CRITICAL messages.
+
+It's not a true daemon as it will run in the foreground. No init-script or systemd-unit is provided. It can also be run from cron, but you should make sure to just run one instance at a time.
 
 ### Authentication
 
