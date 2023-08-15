@@ -733,10 +733,11 @@ def jellyfin_anime_sync():
                                             adbb.log.info(f'update mylist for {fo}, watched: "{watched}"')
                                     else:
                                         mylist_fo = adbb.File(anime=anime, episode=ep)
-                                        if not args.dry_run:
-                                            mylist_fo.update_mylist(state='on hdd', watched=watched)
-                                        else:
-                                            adbb.log.info(f'update mylist for {mylist_fo}, watched: "{watched}"')
+                                        if not mylist_fo.mylist_state or mylist_fo.mylist_viewed != bool(watched):
+                                            if not args.dry_run:
+                                                mylist_fo.update_mylist(state='on hdd', watched=watched)
+                                            else:
+                                                adbb.log.info(f'update mylist for {mylist_fo}, watched: "{watched}"')
 
                     if args.rearrange:
                         arrange_files([os.path.join(root, f) for f in files],
@@ -756,7 +757,8 @@ def jellyfin_anime_sync():
                                           link_exclusive_dir=args.anidb_library
                                           )
                     failures = 0
-                    status_msg = f'{iterations}/{len(full_path_list)} paths processed.'
+                    runtime = datetime.datetime.now()-starttime
+                    status_msg = f'{iterations}/{len(full_path_list)} paths processed in {str(runtime)}.'
                     time.sleep(delay)
 
             # Clean up broken symlinks/empty dirs
