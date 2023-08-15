@@ -26,7 +26,7 @@ from adbb.responses import ResponseResolver
 from adbb.errors import *
 import adbb.commands
 
-#from Crypto.Cipher import AES
+from Crypto.Cipher import AES
 
 class AniDBLink(threading.Thread):
     def __init__(self,
@@ -37,7 +37,8 @@ class AniDBLink(threading.Thread):
                     port=9000,
                     myport=9876,
                     nat_ping_interval=600,
-                    timeout=20):
+                    timeout=20,
+                    api_key=None):
         super(AniDBLink, self).__init__()
         self._user = user
         self._pwd = pwd
@@ -61,6 +62,8 @@ class AniDBLink(threading.Thread):
         self._auth_lock = threading.Lock()
         self._session = None
 
+        self._api_key=api_key
+
         self.daemon = True
         self.start()
 
@@ -68,11 +71,29 @@ class AniDBLink(threading.Thread):
         adbb.log.info(f"Logged out from AniDB")
         self._stop.set()
 
+    def _start_encrypted_session(self):
+        req = adbb.commands.EncryptCommand(
+                self._user,
+                self._api_key,
+                "1")
+        self.request(req, self._encryption_handler)
+
+    def _encryption_handler(self, resp):
+        self._api_key = hashlib.md5(bytes(self._api_key + resp.attrs['salt'], 'utf-8')).digest()
+        self._listener._cipher = AES.new(self._api_key, AES.MODE_ECB)
+        self._authenticating.set()
+
+
     def _reauthenticate(self):
         with self._auth_lock:
             if self._authenticating.is_set() or self._authed.is_set():
                 return
-            self._authenticating.set()
+            if self._api_key and not self._listener._cipher:
+                self._start_encrypted_session()
+                self._authenticating.wait()
+                adbb.log.info('Encrypted session established, proceding with auth')
+            else:
+                self._authenticating.set()
 
         req = adbb.commands.AuthCommand(
                 self._user, 
@@ -154,6 +175,8 @@ class AniDBLink(threading.Thread):
         self._last_packet = time()
         command.started = time()
         data = command.raw_data().encode('utf-8')
+        if self._listener._cipher:
+            data = self._listener.encrypt(data)
         
         if command.command == 'AUTH':
             adbb.log.debug("NetIO > AUTH data is not logged!")
@@ -175,8 +198,8 @@ class AniDBLink(threading.Thread):
         self._listener.cmd_queue[command.tag] = command
         adbb.log.debug("Queued command {} with tag {}".format(
                 command.command, command.tag))
-        # special case, AUTH command should not be queued but sent asap.
-        if command.command == 'AUTH':
+        # special case, AUTH and ENCRYPT commands should not be queued but sent asap.
+        if command.command in ('AUTH', 'ENCRYPT'):
             self._send_command(command)
             return
         if prio:
@@ -190,6 +213,7 @@ class AniDBLink(threading.Thread):
     def reauthenticate(self):
         self._authed.clear()
         self._session = None
+        self._listener._cipher = None
         self._reauthenticate()
 
     def stop(self):
@@ -207,9 +231,7 @@ class AniDBLink(threading.Thread):
             self._banned = 1
         else:
             self._banned *= 2
-        self._authed.clear()
-        self._session = 0
-        self._reauthenticate()
+        self.reauthenticate()
 
 
 class AniDBListener(threading.Thread):
@@ -223,6 +245,7 @@ class AniDBListener(threading.Thread):
         self.timeout = timeout
         self.sock = self._connect_socket(myport, self.timeout)
         self._sender = sender
+        self._cipher = None
 
         self.cmd_queue = {}
 
@@ -241,6 +264,18 @@ class AniDBListener(threading.Thread):
             self.sock.close()
             self.sock = None
 
+    def encrypt(self, data):
+        pad_len = 16-len(data) % 16
+        padding = (chr(pad_len)*pad_len).encode('utf-8')
+        data = data + padding
+        return self._cipher.encrypt(data)
+
+    def decrypt(self, data):
+        data = self._cipher.decrypt(data)
+        pad_len = data[-1]
+        return data[:-pad_len]
+
+
     def stop(self):
         adbb.log.debug("Closing listening socket")
         self._disconnect_socket()
@@ -257,6 +292,11 @@ class AniDBListener(threading.Thread):
             except OSError:
                 continue
             adbb.log.debug("NetIO < %s" % repr(data))
+            if self._cipher:
+                try:
+                    data = self.decrypt(data)
+                except ValueError:
+                    pass
             for i in range(2):
                 tmp = data
                 resp = None
@@ -265,7 +305,8 @@ class AniDBListener(threading.Thread):
                     adbb.log.debug("UnZip | %s" % repr(tmp))
                 resp = ResponseResolver(tmp)
             if not resp:
-                raise AniDBPacketCorruptedError("Either decrypting, decompressing or parsing the packet failed")
+                adbb.log.error(f"Invalid response: {data}")
+                self._sender.reauthenticate()
             if resp.restag:
                 if resp.restag in self.cmd_queue:
                     cmd = self.cmd_queue.pop(resp.restag)
@@ -289,8 +330,6 @@ class AniDBListener(threading.Thread):
             resp.parse()
             if resp.rescode in ('200', '201'):
                 self._sender.set_session(resp.attrs['sesskey'])
-            elif resp.rescode in ('209',):
-                raise AniDBError("sorry encryption is not supported")
             elif resp.rescode in ('501', '506', '403'):
                 self._sender.reauthenticate()
                 self._sender.request(cmd, cmd.callback, prio=True)

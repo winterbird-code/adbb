@@ -141,6 +141,11 @@ def arrange_anime_args():
             '-M', '--disable-mylist',
             action='store_true',
             help='do not update mylist status for files')
+    parser.add_argument(
+            '-b', '--api-key',
+            help="Enable encryption using the given API key as defined in your AniDB profile",
+            default=None
+            )
     return parser.parse_args()
 
 def create_filelist(paths, recurse=True):
@@ -490,7 +495,7 @@ def arrange_anime():
     if not filelist:
         sys.exit(0)
     log = get_command_logger(debug=args.debug)
-    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
+    adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile, api_key=args.api_key)
     arrange_files(
             filelist,
             target_dir=args.target_dir,
@@ -600,6 +605,11 @@ def get_jellyfin_anime_sync_args():
             action='store_true',
             help='log warning message when adding file to mylist if previous episode is not in mylist')
     parser.add_argument(
+            '-b', '--api-key',
+            help="Enable encryption using the given API key as defined in your AniDB profile",
+            default=None
+            )
+    parser.add_argument(
             'path',
             help="Where the anime is stored"
             )
@@ -656,7 +666,7 @@ def jellyfin_anime_sync():
                 user, password = (args.jellyfin_user, args.jellyfin_password)
 
             if reinit_adbb:
-                adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile)
+                adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile, api_key=args.api_key)
                 reinit_adbb=False
             adbb.update_anilist()
             adbb.update_animetitles()

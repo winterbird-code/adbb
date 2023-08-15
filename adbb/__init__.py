@@ -47,7 +47,8 @@ def init(
         loglevel='info',
         logger=None,
         netrc_file=None,
-        outgoing_udp_port=random.randrange(9000, 10000)):
+        outgoing_udp_port=random.randrange(9000, 10000),
+        api_key=None):
 
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -91,7 +92,8 @@ def init(
     _anidb = adbb.link.AniDBLink(
         api_user,
         api_pass,
-        myport=outgoing_udp_port)
+        myport=outgoing_udp_port,
+        api_key=api_key)
 
     if nrc:
         # if no password is given in sql-url we try to look it up
