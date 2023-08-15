@@ -134,7 +134,7 @@ def arrange_anime_args():
             action='store_true',
             help="log warning message when adding last episode in series to mylist")
     parser.add_argument(
-            '-e', '--check-previous-episode',
+            '-k', '--check-previous-episode',
             action='store_true',
             help='log warning message when adding file to mylist if previous episode is not in mylist')
     parser.add_argument(
@@ -592,6 +592,14 @@ def get_jellyfin_anime_sync_args():
             action='store_true'
             )
     parser.add_argument(
+            '-c', '--check-series-complete',
+            action='store_true',
+            help="log warning message when adding last episode in series to mylist")
+    parser.add_argument(
+            '-k', '--check-previous-episode',
+            action='store_true',
+            help='log warning message when adding file to mylist if previous episode is not in mylist')
+    parser.add_argument(
             'path',
             help="Where the anime is stored"
             )
@@ -754,7 +762,9 @@ def jellyfin_anime_sync():
                                           dry_run=args.dry_run,
                                           link_movies_dir=args.moviedb_library,
                                           link_tv_dir=args.tvdb_library,
-                                          link_exclusive_dir=args.anidb_library
+                                          link_exclusive_dir=args.anidb_library,
+                                          check_previous=args.check_previous_episode,
+                                          check_complete=args.check_series_complete
                                           )
                     failures = 0
                     runtime = datetime.datetime.now()-starttime
