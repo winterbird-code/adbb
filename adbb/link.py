@@ -158,11 +158,11 @@ class AniDBLink(threading.Thread):
                         and self._do_ping \
                         and time_since_cmd > self._nat_ping_interval:
                     command = adbb.commands.PingCommand()
-                    self.request(command, _ping_callback)
+                    self.request(command, self._ping_callback)
                 elif self._authed.is_set() and time_since_cmd >= 1800:
                     command = adbb.commands.UptimeCommand()
                     adbb.log.debug("Connection idle for 30 minutes, sending UPTIME command")
-                    self.request(command, _ping_callback)
+                    self.request(command, self._ping_callback)
 
             command = self._queue.pop()
             adbb.log.debug("sending command {} with tag {}".format(
