@@ -658,6 +658,13 @@ def jellyfin_anime_sync():
         iterations=0
         starttime = datetime.datetime.now()
         try:
+            if not args.jellyfin_user or not args.jellyfin_password:
+                parsed_url = urllib.parse.urlparse(args.jellyfin_url)
+                nrc = netrc.netrc(args.authfile)
+                user, _account, password = nrc.authenticators(parsed_url.hostname)
+            else:
+                user, password = (args.jellyfin_user, args.jellyfin_password)
+
             if reinit_adbb:
                 adbb.init(args.sql_url, api_user=args.username, api_pass=args.password, logger=log, netrc_file=args.authfile, api_key=args.api_key)
                 reinit_adbb=False
