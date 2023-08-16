@@ -81,12 +81,14 @@ def init(
             raise Exception("User and passwords are required if no netrc file exists")
         for host in ['api.anidb.net', 'api.anidb.info', 'anidb.net']:
             try:
-                username, _account, password = nrc.authenticators(host)
+                username, account, password = nrc.authenticators(host)
             except TypeError:
                 pass
             if username and password:
                 api_user = username
                 api_pass = password
+                if account and not api_key:
+                    api_key = account
                 break
 
     _anidb = adbb.link.AniDBLink(
