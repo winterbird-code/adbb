@@ -305,8 +305,8 @@ class AniDBListener(threading.Thread):
                     adbb.log.debug("UnZip | %s" % repr(tmp))
                 resp = ResponseResolver(tmp)
             if not resp:
-                adbb.log.error(f"Invalid response: {data}")
-                self._sender.reauthenticate()
+                adbb.log.warning(f"Invalid response: {data}")
+                continue
             if resp.restag:
                 if resp.restag in self.cmd_queue:
                     cmd = self.cmd_queue.pop(resp.restag)
@@ -315,13 +315,21 @@ class AniDBListener(threading.Thread):
             else:
                 # No responsetag... we're probably banned
                 try:
-                    code=int(repr(data)[:3])
+                    code=int(data[:3])
                 except ValueError:
                     adbb.log.critical(f"Unparseable response from API: {repr(data)}")
                     sys.exit(2)
                 reason = resp.resstr
                 if code in (600, 601, 602, 604):
                     self._sender.set_banned(code=code, reason=reason)
+                elif code in (598):
+                    # We get here if an encrypted session has timed out
+                    # No need to log in again if all that's left in queue is a
+                    # logout command.
+                    if all([x.command == 'LOGOUT' for x in self.cmd_queue.values]):
+                        self.stop()
+                    else:
+                        self._sender.reauthenticate()
                 else:
                     adbb.log.critical(f'Unhandled response from API: {repr(data)}')
                     sys.exit(2)
@@ -331,8 +339,11 @@ class AniDBListener(threading.Thread):
             if resp.rescode in ('200', '201'):
                 self._sender.set_session(resp.attrs['sesskey'])
             elif resp.rescode in ('501', '506', '403'):
-                self._sender.reauthenticate()
-                self._sender.request(cmd, cmd.callback, prio=True)
+                if cmd.command == 'LOGOUT':
+                    self.stop()
+                else:
+                    self._sender.reauthenticate()
+                    self._sender.request(cmd, cmd.callback, prio=True)
                 continue
             elif resp.rescode in ('203', '500', '503'):
                 self.stop()
