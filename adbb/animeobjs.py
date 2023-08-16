@@ -395,6 +395,8 @@ class Episode(AniDBObj):
             adbb.log.debug("Found db_data for episode: {}".format(self.db_data))
             if self.db_data.epno:
                 self._episode_number = self.db_data.epno
+            if not self._anime:
+                self._anime = self.db_data.aid
         self._close_db_session(sess)
 
     def _anidb_data_callback(self, res):
@@ -694,6 +696,8 @@ class File(AniDBObj):
             adbb.log.debug("Found db_data for file: {}".format(self.db_data))
             self._is_generic = self.db_data.is_generic
             self._part = self.db_data.part
+        if not self._anime and self.db_data.aid:
+            self._anime = Anime(self.db_data.aid)
         self._close_db_session(sess)
 
     def _anidb_file_data_callback(self, res):

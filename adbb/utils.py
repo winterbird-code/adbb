@@ -460,8 +460,8 @@ def arrange_files(
                 if epnos[0] != epnos[-1]:
                     last_ep = adbb.Episode(anime=epfile.anime, epno=epnos[-1])
                     last_season, last_epno = last_ep.tvdb_episode
-                    if type(last_epno) is tuple and last_epno[0] == epno:
-                            epno = epno
+                    if type(last_epno) is tuple and last_epno[0] == epnos[0][0]:
+                            epno = epnos[0][0]
                     elif '+' in last_epno:
                         epno = f"{epno}-{last_epno.split('+')[-1]}"
                     else:

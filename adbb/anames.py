@@ -154,14 +154,16 @@ def update_anilist():
                     # parts with episode numbers. When scraping movies the part
                     # should probably be ignored.
                     anidb_eps = sorted(attrs['epmap'].keys(), key=lambda x: int(x))
+                    newmap = {}
                     for anidb_ep in anidb_eps:
                         my_epno = attrs['epmap'][anidb_ep]
                         others = [ x for x in anidb_eps if attrs['epmap'][x] == my_epno]
                         if len(others) == 1:
-                            continue
+                            newmap[anidb_ep] = my_epno
                         else:
                             part = others.index(anidb_ep)+1
-                            attrs['epmap'][anidb_ep] = (my_epno, part)
+                            newmap[anidb_ep] = (my_epno, part)
+                    attrs['epmap'] = newmap
 
                 anilist[aid]['map'].append(attrs)
 
