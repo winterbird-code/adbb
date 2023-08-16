@@ -145,16 +145,25 @@ class AniDBLink(threading.Thread):
             adbb.log.debug("Delaying request with {} seconds".format(delay))
             sleep(delay)
 
+    def _ping_callback(self, resp):
+        adbb.log.debug(f"Successful ping response: {resp}")
+
     def run(self):
         # can't figure out a better way than to do a busy-wait here :/
         while True:
             while len(self._queue) < 1:
                 sleep(0.2)
+                time_since_cmd = time()-self._last_packet
                 if self._authed.is_set() \
                         and self._do_ping \
-                        and time() - self._last_packet > self._nat_ping_interval:
+                        and time_since_cmd > self._nat_ping_interval:
                     command = adbb.commands.PingCommand()
-                    self.request(command)
+                    self.request(command, _ping_callback)
+                elif self._authed.is_set() and time_since_cmd >= 1800:
+                    command = adbb.commands.UptimeCommand()
+                    adbb.log.debug("Connection idle for 30 minutes, sending UPTIME command")
+                    self.request(command, _ping_callback)
+
             command = self._queue.pop()
             adbb.log.debug("sending command {} with tag {}".format(
                     command.command, command.tag))
