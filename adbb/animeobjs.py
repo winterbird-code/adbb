@@ -696,7 +696,7 @@ class File(AniDBObj):
             adbb.log.debug("Found db_data for file: {}".format(self.db_data))
             self._is_generic = self.db_data.is_generic
             self._part = self.db_data.part
-        if not self._anime and self.db_data.aid:
+        if not self._anime and self.db_data and self.db_data.aid:
             self._anime = Anime(self.db_data.aid)
         self._close_db_session(sess)
 
