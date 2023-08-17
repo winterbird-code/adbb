@@ -462,10 +462,12 @@ def arrange_files(
                     last_season, last_epno = last_ep.tvdb_episode
                     if type(last_epno) is tuple and last_epno[0] == epno:
                             partstr=""
-                    elif '+' in last_epno:
+                    elif last_epno and '+' in last_epno:
                         epno = f"{epno}-{last_epno.split('+')[-1]}"
-                    else:
+                    elif last_epno:
                         epno = f'{epno}-{last_epno}'
+                    else:
+                        adbb.log.warning(f'No TVDB episode mapping for {last_ep}')
                 elif type(epno) is list:
                     epno = f'{epno[0]}-{epno[-1]}'
                 if adbb.anames.tvdbid_has_absolute_order(epfile.anime.tvdbid):
@@ -708,7 +710,7 @@ def jellyfin_anime_sync():
             if args.sleep_delay:
                 delay = args.sleep_delay
             elif args.sleep_delay is None and args.repeat:
-                delay = max(min((22*60*60-len(full_path_list)*9)/len(full_path_list), 300), 0)
+                delay = max(min((22*60*60-len(full_path_list)*8.9)/len(full_path_list), 300), 0)
             else:
                 delay = 0
             adbb.log.info(f"Starting sync of {len(full_path_list)} paths with {delay} seconds delay between paths.")

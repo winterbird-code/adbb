@@ -145,8 +145,8 @@ class AniDBLink(threading.Thread):
             adbb.log.debug("Delaying request with {} seconds".format(delay))
             sleep(delay)
 
-    def _ping_callback(self, resp):
-        adbb.log.debug(f"Successful ping response: {resp}")
+    def _ping_callback(self, _resp):
+        adbb.log.debug(f"Successful session refresh")
 
     def run(self):
         # can't figure out a better way than to do a busy-wait here :/
@@ -161,7 +161,7 @@ class AniDBLink(threading.Thread):
                     self.request(command, self._ping_callback)
                 elif self._authed.is_set() and time_since_cmd >= 1800:
                     command = adbb.commands.UptimeCommand()
-                    adbb.log.debug("Connection idle for 30 minutes, sending UPTIME command")
+                    adbb.log.debug("Session idle for 30 minutes, sending UPTIME command")
                     self.request(command, self._ping_callback)
 
             command = self._queue.pop()

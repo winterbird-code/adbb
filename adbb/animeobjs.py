@@ -337,17 +337,19 @@ class Episode(AniDBObj):
     @property
     def tvdb_episode(self):
         res = adbb.anames.get_tvdb_episode(self.anime.aid, self.episode_number)
-        # for movies if a part number is returned it should be ignored if it is
-        # 1 and subtracted by 1 if it is higher than that. This is due to how
-        # anidb sometimes adds parts as episodes
-        if self.anime.nr_of_episodes == 1:
+        # special case if when anidb adds parts as regular episodes on movies
+        if self.anime.nr_of_episodes == 1 and self._part is None:
             season, ep = res
+            try:
+                my_ep = int(self.episode_number)
+            except ValueError:
+                return res
             if type(ep) == tuple:
                 epno, part = ep
-                if part == 1:
-                    return (season, epno)
+                if my_ep == 1:
+                    res = (season, epno)
                 else:
-                    return (season, (epno, part-1))
+                    res = (season, (epno, my_ep-1))
         return res
 
     @property
