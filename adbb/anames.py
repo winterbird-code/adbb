@@ -380,8 +380,7 @@ def get_tvdb_episode(aid, epno):
             if 'offset' in m:
                 return (tvdb_season, str(int(m['offset']) + int_epno))
     if anidb_season == "0" or not tvdb_season:
-        # Specials must be explicitly mapped
-        return (None, None)
+        return (anidb_season, str_epno)
 
     if 'episodeoffset' in maps:
         return (tvdb_season, str(int(maps['episodeoffset']) + int_epno))
