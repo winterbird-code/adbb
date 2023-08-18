@@ -444,11 +444,17 @@ def arrange_files(
                 if adbb.anames.tvdbid_has_absolute_order(epfile.anime.tvdbid):
                     epno = None
 
-            if epfile.anime.tvdbid and link_tv_dir and epno and not ( \
-                    epfile.anime.nr_of_episodes == 1 and \
-                    not epfile.anime.relations and \
-                    (epfile.anime.tmdbid or epfile.anime.imdb)
-                    ):
+            if epfile.anime.nr_of_episodes == 1 and epfile.anime.tmdbid and link_movies_dir:
+                d = os.path.join(link_movies_dir, f'adbb [tmdbid-{epfile.anime.tmdbid}]')
+                linkname = os.path.basename(newname)
+                link = os.path.join(d, linkname)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
+            elif epfile.anime.nr_of_episodes == 1 and epfile.anime.imdbid and link_movies_dir:
+                d = os.path.join(link_movies_dir, f'adbb [imdbid-{epfile.anime.imdbid}]')
+                linkname = os.path.basename(newname)
+                link = os.path.join(d, linkname)
+                link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
+            elif epfile.anime.tvdbid and link_tv_dir and epno:
                 if type(epno) is tuple:
                     partstr = f'-part{epno[1]}'
                     epno = epno[0]
@@ -474,16 +480,6 @@ def arrange_files(
                     linkname = f"{aname} - {epno}{partstr}.{ext}"
                 else:
                     linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
-                link = os.path.join(d, linkname)
-                link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
-            elif epfile.anime.nr_of_episodes == 1 and epfile.anime.tmdbid and link_movies_dir:
-                d = os.path.join(link_movies_dir, f'adbb [tmdbid-{epfile.anime.tmdbid}]')
-                linkname = os.path.basename(newname)
-                link = os.path.join(d, linkname)
-                link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
-            elif epfile.anime.nr_of_episodes == 1 and epfile.anime.imdbid and link_movies_dir:
-                d = os.path.join(link_movies_dir, f'adbb [imdbid-{epfile.anime.imdbid}]')
-                linkname = os.path.basename(newname)
                 link = os.path.join(d, linkname)
                 link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
             elif exclusive_dir:
