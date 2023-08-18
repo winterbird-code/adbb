@@ -228,39 +228,42 @@ class Anime(AniDBObj):
             if attr in adbb.mapper.anime_map_a_converters:
                 ainfo[attr] = adbb.mapper.anime_map_a_converters[attr](data)
 
-        sess = self._get_db_session()
-        if self.db_data:
-            self.db_data = sess.merge(self.db_data)
-            self.db_data.update(**ainfo)
-            self.db_data.updated = datetime.datetime.now(self._timezone)
-            new_relations = []
-            for r in relations:
-                found = False
-                for sr in self.db_data.relations:
-                    if r.related_aid == sr.related_aid:
-                        found = True
-                        sr.relation_type = r.relation_type
-                        sr.anime_pk = self.db_data.pk
-                        new_relations.append(sr)
-                if not found:
-                    r.anime_pk = self.db_data.pk
-                    new_relations.append(r)
-            for r in self.db_data.relations:
-                if r not in new_relations:
-                    sess.delete(r)
-            self.db_data.relations = new_relations
-        else:
-            new = AnimeTable(**ainfo)
-            new.updated = datetime.datetime.now(self._timezone)
-            new.last_update_dice = datetime.datetime.now(self._timezone)
-            new.relations = relations
-            # commit to sql database
-            sess.add(new)
+        try:
+            sess = self._get_db_session()
+            if self.db_data:
+                self.db_data = sess.merge(self.db_data)
+                self.db_data.update(**ainfo)
+                self.db_data.updated = datetime.datetime.now(self._timezone)
+                new_relations = []
+                for r in relations:
+                    found = False
+                    for sr in self.db_data.relations:
+                        if r.related_aid == sr.related_aid:
+                            found = True
+                            sr.relation_type = r.relation_type
+                            sr.anime_pk = self.db_data.pk
+                            new_relations.append(sr)
+                    if not found:
+                        r.anime_pk = self.db_data.pk
+                        new_relations.append(r)
+                for r in self.db_data.relations:
+                    if r not in new_relations:
+                        sess.delete(r)
+                self.db_data.relations = new_relations
+            else:
+                new = AnimeTable(**ainfo)
+                new.updated = datetime.datetime.now(self._timezone)
+                new.last_update_dice = datetime.datetime.now(self._timezone)
+                new.relations = relations
+                # commit to sql database
+                sess.add(new)
 
-        if new:
-            self.db_data = new
-        self._db_commit(sess)
-        self._close_db_session(sess)
+            if new:
+                self.db_data = new
+            self._db_commit(sess)
+            self._close_db_session(sess)
+        except sqlalchemy.exc.OperationalError:
+            adbb.log.error(f"Failed to update {self} in database")
         self._updated.set()
 
     def _send_anidb_update_req(self, prio=False):
@@ -402,40 +405,43 @@ class Episode(AniDBObj):
         self._close_db_session(sess)
 
     def _anidb_data_callback(self, res):
-        sess = self._get_db_session()
-        if res.rescode == "340":
-            adbb.log.warning("No such episode in anidb: {}".format(self))
-            self._illegal_object = True
-            self._updated.set()
-            return
-        einfo = res.datalines[0]
-        new = None
-        for attr, data in einfo.items():
-            if attr == 'epno':
-                try:
-                    einfo[attr] = str(int(data))
-                except ValueError:
-                    pass
-                continue
-            if attr in ('title_eng', 'title_romaji', 'title_kanji'):
-                continue
-            einfo[attr] = adbb.mapper.episode_map_converters[attr](data)
+        try:
+            sess = self._get_db_session()
+            if res.rescode == "340":
+                adbb.log.warning("No such episode in anidb: {}".format(self))
+                self._illegal_object = True
+                self._updated.set()
+                return
+            einfo = res.datalines[0]
+            new = None
+            for attr, data in einfo.items():
+                if attr == 'epno':
+                    try:
+                        einfo[attr] = str(int(data))
+                    except ValueError:
+                        pass
+                    continue
+                if attr in ('title_eng', 'title_romaji', 'title_kanji'):
+                    continue
+                einfo[attr] = adbb.mapper.episode_map_converters[attr](data)
 
-        if self.db_data:
-            self.db_data = sess.merge(self.db_data)
-            self.db_data.update(**einfo)
-            self.db_data.updated = datetime.datetime.now(self._timezone)
-        else:
-            new = EpisodeTable(**einfo)
-            new.updated = datetime.datetime.now(self._timezone)
-            new.last_update_dice = datetime.datetime.now(self._timezone)
-            sess.add(new)
+            if self.db_data:
+                self.db_data = sess.merge(self.db_data)
+                self.db_data.update(**einfo)
+                self.db_data.updated = datetime.datetime.now(self._timezone)
+            else:
+                new = EpisodeTable(**einfo)
+                new.updated = datetime.datetime.now(self._timezone)
+                new.last_update_dice = datetime.datetime.now(self._timezone)
+                sess.add(new)
 
-        if new:
-            self.db_data = new
+            if new:
+                self.db_data = new
 
-        self._db_commit(sess)
-        self._close_db_session(sess)
+            self._db_commit(sess)
+            self._close_db_session(sess)
+        except sqlalchemy.exc.OperationalError:
+            adbb.log.error(f"Failed to update {self} in database")
         self._updated.set()
 
     def _send_anidb_update_req(self, prio=False):
@@ -796,22 +802,25 @@ class File(AniDBObj):
             if not self.db_data.eid and not 'eid' in finfo:
                 finfo['eid'] = episodes[0].eid
 
-        sess = self._get_db_session()
-        if self.db_data:
-            self.db_data = sess.merge(self.db_data)
-            adbb.log.debug('{}: update {}'.format(self, finfo))
-            self.db_data.update(**finfo)
-            self.db_data.updated = datetime.datetime.now(self._timezone)
-        else:
-            new = FileTable(**finfo)
-            new.updated = datetime.datetime.now(self._timezone)
-            new.last_update_dice = datetime.datetime.now(self._timezone)
-            sess.add(new)
+        try:
+            sess = self._get_db_session()
+            if self.db_data:
+                self.db_data = sess.merge(self.db_data)
+                adbb.log.debug('{}: update {}'.format(self, finfo))
+                self.db_data.update(**finfo)
+                self.db_data.updated = datetime.datetime.now(self._timezone)
+            else:
+                new = FileTable(**finfo)
+                new.updated = datetime.datetime.now(self._timezone)
+                new.last_update_dice = datetime.datetime.now(self._timezone)
+                sess.add(new)
 
-        if new:
-            self.db_data = new
-        self._db_commit(sess)
-        self._close_db_session(sess)
+            if new:
+                self.db_data = new
+            self._db_commit(sess)
+            self._close_db_session(sess)
+        except sqlalchemy.exc.OperationalError:
+            adbb.log.error(f"Failed to update {self} in database")
         self._file_updated.set()
 
         if update_mylist:
@@ -839,60 +848,63 @@ class File(AniDBObj):
         if 'mylist_viewdate' in finfo and finfo['mylist_viewdate']:
             finfo['mylist_viewed'] = True
 
-        sess = self._get_db_session()
-        if (self.db_data and self.db_data.is_generic and finfo['gid']) or \
-                (self.db_data and not self.db_data.is_generic and finfo['fid'] != self.db_data.fid):
-            if finfo['gid']:
-                finfo['is_generic'] = False
-            else:
-                finfo['is_generic'] = True
+        try:
+            sess = self._get_db_session()
+            if (self.db_data and self.db_data.is_generic and finfo['gid']) or \
+                    (self.db_data and not self.db_data.is_generic and finfo['fid'] != self.db_data.fid):
+                if finfo['gid']:
+                    finfo['is_generic'] = False
+                else:
+                    finfo['is_generic'] = True
 
-            # there is something in mylist; but it's not us :/
-            res = sess.query(FileTable).filter_by(lid=finfo['lid']).all()
-            if not res:
+                # there is something in mylist; but it's not us :/
+                res = sess.query(FileTable).filter_by(lid=finfo['lid']).all()
+                if not res:
+                    new = FileTable(**finfo)
+                    new.updated = datetime.datetime.now(self._timezone)
+                    new.last_update_dice = datetime.datetime.now(self._timezone)
+                    sess.add(new)
+                else:
+                    obj = res[0]
+                    obj.updated = datetime.datetime.now(self._timezone)
+                    obj.last_update_dice = datetime.datetime.now(self._timezone)
+                    obj.update(**finfo)
+                self._db_commit(sess)
+                self._close_db_session(sess)
+                self._mylist_updated.set()
+                return
+
+            if self._path:
+                finfo['path'] = self._path
+                finfo['size'] = self._size
+                finfo['ed2khash'] = self._ed2khash
+                finfo['mtime'] = self._mtime
+
+            finfo['part'] = self._part
+
+            if finfo['gid']:
+                self._is_generic = False
+            else:
+                self._is_generic = True
+            finfo['is_generic'] = self._is_generic
+            if self.db_data:
+                adbb.log.debug("New mylist info: {}".format(finfo))
+                self.db_data = sess.merge(self.db_data)
+                self.db_data.update(**finfo)
+                self.db_data.updated = datetime.datetime.now(self._timezone)
+            else:
                 new = FileTable(**finfo)
                 new.updated = datetime.datetime.now(self._timezone)
                 new.last_update_dice = datetime.datetime.now(self._timezone)
+                adbb.log.debug("Adding mylist info: {}".format(finfo))
                 sess.add(new)
-            else:
-                obj = res[0]
-                obj.updated = datetime.datetime.now(self._timezone)
-                obj.last_update_dice = datetime.datetime.now(self._timezone)
-                obj.update(**finfo)
+
+            if new:
+                self.db_data = new
             self._db_commit(sess)
             self._close_db_session(sess)
-            self._mylist_updated.set()
-            return
-
-        if self._path:
-            finfo['path'] = self._path
-            finfo['size'] = self._size
-            finfo['ed2khash'] = self._ed2khash
-            finfo['mtime'] = self._mtime
-
-        finfo['part'] = self._part
-
-        if finfo['gid']:
-            self._is_generic = False
-        else:
-            self._is_generic = True
-        finfo['is_generic'] = self._is_generic
-        if self.db_data:
-            adbb.log.debug("New mylist info: {}".format(finfo))
-            self.db_data = sess.merge(self.db_data)
-            self.db_data.update(**finfo)
-            self.db_data.updated = datetime.datetime.now(self._timezone)
-        else:
-            new = FileTable(**finfo)
-            new.updated = datetime.datetime.now(self._timezone)
-            new.last_update_dice = datetime.datetime.now(self._timezone)
-            adbb.log.debug("Adding mylist info: {}".format(finfo))
-            sess.add(new)
-
-        if new:
-            self.db_data = new
-        self._db_commit(sess)
-        self._close_db_session(sess)
+        except sqlalchemy.exc.OperationalError:
+            adbb.log.error(f"Failed to update {self} in database")
         self._mylist_updated.set()
 
     def _send_anidb_update_req(self, prio=False, req_mylist=False, req_file=True):
