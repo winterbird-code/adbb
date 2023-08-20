@@ -12,6 +12,7 @@ import signal
 import sys
 import time
 import urllib
+import xml.etree.ElementTree as ET
 
 import adbb
 import adbb.anames
@@ -60,6 +61,43 @@ class InfoLogFilter(logging.Filter):
         if record.levelno <= logging.INFO:
             return True
         return False
+
+def file_to_nfo(epfile, nfo_path):
+
+    eps = epfile.multiep
+    with open(f'{nfo_path}.tmp', 'w', encoding='utf-8') as f:
+        f.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
+        for ep in eps:
+            episode = adbb.Episode(anime=epfile.anime, episode=ep)
+            if episode.type != 'regular':
+                season = '0'
+            else:
+                season = '1'
+
+            root = ET.Element('episodedetails')
+            e = ET.SubElement(root, 'name')
+            e.text = episode.title_romaji
+            e = ET.SubElement(root, 'originaltitle')
+            e.text = episode.title_kanji
+            e = ET.SubElement(root, 'year')
+            e.text = episode.aired.strftime('%Y')
+            e = ET.SubElement(root, 'aired')
+            e.text = episode.aired.strftime('%Y-%m-%d')
+            e = ET.SubElement(root, 'rating')
+            e.text = episode.rating
+            e = ET.SubElement(root, 'season')
+            e.text = season
+            e = ET.SubElement(root, 'episode')
+            e.text = episode.episode_number.strip('Ss')
+            e = ET.SubElement(root, 'uniqueid', attrs={'type': 'anidb', 'default': 'true' })
+            e.text = episode.eid
+            etree = ET.ElementTree(element=root)
+            ET.indent(etree)
+            
+            etree.write(f, encoding='unicode', xml_declaration=False)
+            f.write('\n')
+
+    os.rename(f'{nfo_path}.tmp', nfo_path)
 
 
 def get_command_logger(debug=False, syslog=False):
@@ -161,7 +199,7 @@ def create_filelist(paths, recurse=True):
                     break
     return filelist
 
-def fsop(source, target, link=False, dry_run=False):
+def fsop(source, target, link=False, dry_run=False, skip_clean=False):
     """ Remove, move or link files and any related file (same basename, other
     extension """
     log = logging.getLogger(__name__)
@@ -252,8 +290,9 @@ def fsop(source, target, link=False, dry_run=False):
 
     # Clean up broken links at both source and target and remove directory if
     # empty
-    remove_dir_if_empty(directory, dry_run=dry_run)
-    remove_dir_if_empty(target_dir, dry_run=dry_run)
+    if not skip_clean:
+        remove_dir_if_empty(directory, dry_run=dry_run)
+        remove_dir_if_empty(target_dir, dry_run=dry_run)
 
 
 def remove_dir_if_empty(directory, dry_run=False):
@@ -265,8 +304,7 @@ def remove_dir_if_empty(directory, dry_run=False):
             p = os.path.join(root,f)
             if os.path.islink(p) and not os.path.exists(os.readlink(p)):
                 log.info(f"Remove broken link {p}")
-                if not dry_run:
-                    os.remove(p)
+                fsop(p, None, skip_clean=True)
 
     content = os.listdir(directory)
     if not content or all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in content)]):
@@ -274,8 +312,7 @@ def remove_dir_if_empty(directory, dry_run=False):
             path = os.path.join(directory, l)
             if os.path.islink(path):
                 log.info(f'Remove stray Extras link {path}')
-                if not dry_run:
-                    os.remove(path)
+                fsop(path, None, skip_clean=True)
 
         log.info(f"Remove empty directory {directory}")
         if not dry_run:
@@ -321,6 +358,7 @@ def arrange_files(
         link_tv_dir=None,
         link_exclusive_dir=None
         ):
+    log = logging.getLogger(__name__)
     for f in filelist:
         epfile = adbb.File(path=f)
         if epfile.group:
@@ -468,6 +506,11 @@ def arrange_files(
         if not is_extra:
             season, epno = epfile.episode.tvdb_episode
 
+            write_nfo = False
+            if season == 's':
+                write_nfo = True
+                season = '0'
+
             if epfile.anime.nr_of_episodes == 1 and epfile.part:
                 partstr = f'-part{epfile.part}'
             else:
@@ -525,6 +568,11 @@ def arrange_files(
                     linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
                 link = os.path.join(d, linkname)
                 link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
+                if write_nfo:
+                    nfo_path = f'{link.rsplit(".", 1)[0]}.nfo'
+                    log.info(f'Uncertain TVDB status, write basic nfo to {nfo_path}')
+                    if not dry_run:
+                        file_to_nfo(epfile, nfo_path)
             elif exclusive_dir:
                 linkname = os.path.basename(newname)
                 link = os.path.join(exclusive_dir, linkname)

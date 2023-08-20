@@ -383,7 +383,8 @@ def get_tvdb_episode(aid, epno):
                     return (None, None)
                 return (tvdb_season, str(ret_epno))
     if anidb_season == "0" or not tvdb_season:
-        return (anidb_season, str_epno)
+        # special, but not explicitly mapped in anime-list
+        return ("s", str_epno)
 
     if 'episodeoffset' in maps:
         ret_epno = int(m['offset']) + int_epno
