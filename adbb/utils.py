@@ -161,28 +161,128 @@ def create_filelist(paths, recurse=True):
                     break
     return filelist
 
-def remove_dir_if_empty(directory):
+def fsop(source, target, link=False, dry_run=False):
+    """ Remove, move or link files and any related file (same basename, other
+    extension """
+    log = logging.getLogger(__name__)
+
+    directory, name = os.path.split(source)
+    basename = name.rsplit('.', 1)[0]
+    dir_content = os.listdir(directory)
+    all_files = [x for x in dir_content if x.startswith(f'{basename}.')]
+    specials = [x for x in dir_content if x.lower() in JELLYFIN_SPECIAL_DIRS]
+
+    if target:
+        target_dir, target_name = os.path.split(target)
+        if not dry_run:
+            os.makedirs(target_dir, exist_ok=True)
+
+    for f in all_files:
+        path = os.path.join(directory, f)
+
+        # Remove mode
+        if not target:
+            log.info(f"Remove {path}")
+            if not dry_run:
+                os.remove(path)
+            continue
+
+        # Move or link 
+        ext = f.rsplit('.', 1)[-1]
+        target_base = target_name.rsplit('.', 1)[0]
+        target_name = f'{target_base}.{ext}'
+        target_path = os.path.join(target_dir, target_name)
+
+        # Move
+        if not link:
+            log.info(f'Move {path} -> {target_path}')
+            if not dry_run:
+                if 'freebsd' in sys.platform.lower():
+                    shutil.copy2(path, target_path)
+                    os.remove(path)
+                else:
+                    try:
+                        shutil.move(path, target_path)
+                    except OSError:
+                        shutil.copy2(path, target_path)
+                        os.remove(f)
+            continue
+
+        # Link
+        log.info(f'Link {target_path} -> {path}')
+        if not dry_run:
+            tmplink = os.path.join(target_dir, f'.{target_name}.tmp')
+            os.symlink(path, tmplink)
+            os.rename(tmplink, target_path)
+            stats = os.stat(path)
+            os.utime(target_path, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
+
+    if not link:
+        # Make sure extras-directories are moved if it's all that is
+        # left in the old directory
+        dirs = os.listdir(directory)
+        if all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in dirs)]):
+            for d in dirs:
+                spath = os.path.join(directory, d)
+                tpath = os.path.join(target_dir, d)
+                log.info(f'Move Extras {spath} -> {tpath}')
+                if not dry_run:
+                    if 'freebsd' in sys.platform.lower():
+                        shutil.copytree(spath, tpath)
+                        shutil.rmtree(spath)
+                    else:
+                        try:
+                            shutil.move(spath, tpath)
+                        except OSError:
+                            shutil.copytree(spath, tpath)
+                            shutil.rmtree(spath)
+    else:
+        # Make sure to link any extras directories in the source path to the
+        # target path
+        target_specials = [x for x in os.listdir(target_dir) if x.lower() in JELLYFIN_SPECIAL_DIRS]
+        for d in specials:
+            if d not in target_specials:
+                spath = os.path.join(directory, d)
+                tpath = os.path.join(target_dir, d)
+                log.info(f'Link Extras {tpath} -> {spath}')
+                if not dry_run:
+                    os.symlink(spath, tpath)
+                    stats = os.stat(spath)
+                    os.utime(tpath, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
+
+    # Clean up broken links at both source and target and remove directory if
+    # empty
+    remove_dir_if_empty(directory, dry_run=dry_run)
+    remove_dir_if_empty(target_dir, dry_run=dry_run)
+
+
+def remove_dir_if_empty(directory, dry_run=False):
     log = logging.getLogger(__name__)
     remove=False
     for root, dirs, files in os.walk(directory):
         dirs[:] = []
-        removed = []
         for f in files:
             p = os.path.join(root,f)
             if os.path.islink(p) and not os.path.exists(os.readlink(p)):
-                os.remove(p)
-                log.info(f"Removed broken link {p}")
-                removed.append(f.lower())
-        if not files or all([x.lower() in JELLYFIN_SPECIAL_DIRS + removed for x in files]):
-            for f in files:
-                os.remove(f)
-            remove=True
-    if remove:
-        log.info(f"Removing empty directory {directory}")
-        try:
-            os.rmdir(directory)
-        except OSError as e:
-            log.error(f"Could not remove directory {directory}: {e}")
+                log.info(f"Remove broken link {p}")
+                if not dry_run:
+                    os.remove(p)
+
+    content = os.listdir(directory)
+    if not content or all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in content)]):
+        for l in content:
+            path = os.path.join(directory, l)
+            if os.path.islink(path):
+                log.info(f'Remove stray Extras link {path}')
+                if not dry_run:
+                    os.remove(path)
+
+        log.info(f"Remove empty directory {directory}")
+        if not dry_run:
+            try:
+                os.rmdir(directory)
+            except OSError as e:
+                log.error(f"Could not remove directory {directory}: {e}")
 
 def link_to_directory(target, linkname, exclusive_dir=None, dry_run=False):
     log = logging.getLogger(__name__)
@@ -191,40 +291,15 @@ def link_to_directory(target, linkname, exclusive_dir=None, dry_run=False):
     if os.path.islink(linkname) and os.readlink(linkname) == target:
         pass
     else:
-        if not dry_run:
-            os.makedirs(linkdir, exist_ok=True)
-            tmplink = os.path.join(linkdir, f'.{name}.tmp')
-            os.symlink(target, tmplink)
-            os.rename(tmplink, linkname)
-            stats = os.stat(target)
-            os.utime(linkname, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
-        log.info(f"Link {linkname} -> {target}")
-    for d in JELLYFIN_SPECIAL_DIRS:
-        extrasdir_src = os.path.join(targetdir, d)
-        extrasdir_lnk = os.path.join(linkdir, d)
-        if os.path.isdir(extrasdir_src) and not os.path.islink(extrasdir_lnk):
-            if not dry_run:
-                os.symlink(extrasdir_src, extrasdir_lnk)
-                stats = os.stat(extrasdir_src)
-                os.utime(extrasdir_lnk, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
-            log.info(f"Link extras dir {extrasdir_lnk} -> {extrasdir_src}")
-    # Will never remove the linkdir from here, but will clean up any broken
-    # links
-    if not dry_run:
-        remove_dir_if_empty(linkdir)
+        fsop(target, linkname, link=True, dry_run=dry_run)
+
     if exclusive_dir and os.path.isdir(exclusive_dir):
-        changed=False
         for root, dirs, files in os.walk(exclusive_dir, followlinks=False):
-            dirs = []
+            dirs[:] = []
             for f in files:
                 p = os.path.join(root, f)
                 if os.path.islink(p) and os.readlink(p) == target:
-                    if not dry_run:
-                        os.remove(p)
-                        changed=True
-                    log.info(f"Remove link {p} from exclusive directory; it's now linked to from {linkdir}")
-        if changed and not dry_run:
-            remove_dir_if_empty(exclusive_dir)
+                    fsop(p, None, dry_run=dry_run)
 
 # The callback will be called for each file after the new filename has been decided, but
 # before the file is actually moved. 
@@ -366,61 +441,29 @@ def arrange_files(
             if os.path.exists(newname):
                 adbb.log.error(f'Not moving "{f}" because file "{newname}" already exists')
                 continue
-            adbb.log.info(f'Move "{f}" -> "{newname}"')
-            if not dry_run:
-                nd, nh = os.path.split(newname)
-                os.makedirs(nd, exist_ok=True)
-                if 'freebsd' in sys.platform.lower():
-                    shutil.copy2(f, newname)
-                    os.remove(f)
-                else:
+            fsop(f, newname, dry_run=dry_run)
+
+            if not (dry_run or epfile.lid or disable_mylist):
+                if check_complete:
+                    last_ep = epfile.multiep[-1]
+                    if last_ep == str(epfile.anime.nr_of_episodes):
+                        adbb.log.warning(f'Adding last episode ({last_ep}) of {epfile.anime.title} to mylist')
+                if check_previous:
                     try:
-                        shutil.move(f, newname)
-                    except OSError:
-                        shutil.copy2(f, newname)
-                        os.remove(f)
-                od, oh = os.path.split(f)
-                # Make sure extras-directories are moved if it's all that is
-                # left in the old directory
-                for root, dirs, files in os.walk(od):
-                    if not files and all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in dirs]):
-                        for d in dirs:
-                            if 'freebsd' in sys.platform.lower():
-                                shutil.copytree(os.path.join(root, d), os.path.join(nd, d))
-                                shutil.rmtree(os.path.join(root, d))
-                            else:
-                                try:
-                                    shutil.move(os.path.join(root, d), os.path.join(nd, d))
-                                except OSError:
-                                    shutil.copytree(os.path.join(root, d), os.path.join(nd, d))
-                                    shutil.rmtree(os.path.join(root, d))
-                    break
-                try:
-                    os.rmdir(od)
-                except OSError:
-                    pass
-                if not epfile.lid and not disable_mylist:
+                        prev_epno = int(epfile.episode.episode_number)-1
+                    except ValueError:
+                        prev_epno = -1
+                    if prev_epno > 0:
+                        prev_ep = adbb.File(anime=epfile.anime, episode=prev_epno)
+                        if not prev_ep.lid:
+                            adbb.log.warning(f'Adding episode {epfile.episode.episode_number} of {epfile.anime.title} to mylist, but episode {prev_epno} is not in mylist!')
 
-                    if check_complete:
-                        last_ep = epfile.multiep[-1]
-                        if last_ep == str(epfile.anime.nr_of_episodes):
-                            adbb.log.warning(f'Adding last episode ({last_ep}) of {epfile.anime.title} to mylist')
-                    if check_previous:
-                        try:
-                            prev_epno = int(epfile.episode.episode_number)-1
-                        except ValueError:
-                            prev_epno = -1
-                        if prev_epno > 0:
-                            prev_ep = adbb.File(anime=epfile.anime, episode=prev_epno)
-                            if not prev_ep.lid:
-                                adbb.log.warning(f'Adding episode {epfile.episode.episode_number} of {epfile.anime.title} to mylist, but episode {prev_epno} is not in mylist!')
-
-                    for e in epfile.multiep:
-                        if str(e).lower() == str(epfile.episode.episode_number).lower():
-                            epfile.update_mylist(watched=False, state='on hdd')
-                        else:
-                            tmpfile = adbb.File(anime=epfile.anime, episode=e)
-                            tmpfile.update_mylist(watched=False, state='on hdd')
+                for e in epfile.multiep:
+                    if str(e).lower() == str(epfile.episode.episode_number).lower():
+                        epfile.update_mylist(watched=False, state='on hdd')
+                    else:
+                        tmpfile = adbb.File(anime=epfile.anime, episode=e)
+                        tmpfile.update_mylist(watched=False, state='on hdd')
 
         if not is_extra:
             season, epno = epfile.episode.tvdb_episode
