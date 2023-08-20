@@ -142,11 +142,12 @@ class AniDBObj(object):
 
     def __getattr__(self, name):
         local_vars = vars(self)
-        local_name = "_{}".format(name)
-        # adbb._log.debug("Requested attribute {} (in local_vars: {})".format(
-        #    name, local_name in local_vars))
-        if local_name in local_vars and local_vars[local_name]:
-            return local_vars[local_name]
+        if not name == 'updated':
+            local_name = "_{}".format(name)
+            # adbb._log.debug("Requested attribute {} (in local_vars: {})".format(
+            #    name, local_name in local_vars))
+            if local_name in local_vars and local_vars[local_name]:
+                return local_vars[local_name]
 
         self._updating.acquire()
         self._updating.release()

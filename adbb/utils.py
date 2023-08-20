@@ -68,29 +68,39 @@ def file_to_nfo(epfile, nfo_path):
     with open(f'{nfo_path}.tmp', 'w', encoding='utf-8') as f:
         f.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
         for ep in eps:
-            episode = adbb.Episode(anime=epfile.anime, episode=ep)
+            episode = adbb.Episode(anime=epfile.anime, epno=ep)
             if episode.type != 'regular':
                 season = '0'
             else:
                 season = '1'
 
             root = ET.Element('episodedetails')
-            e = ET.SubElement(root, 'name')
-            e.text = episode.title_romaji
-            e = ET.SubElement(root, 'originaltitle')
-            e.text = episode.title_kanji
-            e = ET.SubElement(root, 'year')
-            e.text = episode.aired.strftime('%Y')
-            e = ET.SubElement(root, 'aired')
-            e.text = episode.aired.strftime('%Y-%m-%d')
-            e = ET.SubElement(root, 'rating')
-            e.text = episode.rating
+            if episode.title_romaji:
+                e = ET.SubElement(root, 'name')
+                e.text = episode.title_romaji
+            elif episode.title_eng:
+                e = ET.SubElement(root, 'name')
+                e.text = episode.title_eng
+            else:
+                e = ET.SubElement(root, 'name')
+                e.text = episode.title_kanji
+            if episode.title_kanji:
+                e = ET.SubElement(root, 'originaltitle')
+                e.text = episode.title_kanji
+            if episode.aired:
+                e = ET.SubElement(root, 'year')
+                e.text = episode.aired.strftime('%Y')
+                e = ET.SubElement(root, 'aired')
+                e.text = episode.aired.strftime('%Y-%m-%d')
+            if episode.rating:
+                e = ET.SubElement(root, 'rating')
+                e.text = str(episode.rating)
             e = ET.SubElement(root, 'season')
             e.text = season
             e = ET.SubElement(root, 'episode')
             e.text = episode.episode_number.strip('Ss')
             e = ET.SubElement(root, 'uniqueid', attrs={'type': 'anidb', 'default': 'true' })
-            e.text = episode.eid
+            e.text = str(episode.eid)
             etree = ET.ElementTree(element=root)
             ET.indent(etree)
             
@@ -259,7 +269,7 @@ def fsop(source, target, link=False, dry_run=False, skip_clean=False):
         # Make sure extras-directories are moved if it's all that is
         # left in the old directory
         dirs = os.listdir(directory)
-        if all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in dirs)]):
+        if all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in dirs]):
             for d in dirs:
                 spath = os.path.join(directory, d)
                 tpath = os.path.join(target_dir, d)
@@ -274,7 +284,7 @@ def fsop(source, target, link=False, dry_run=False, skip_clean=False):
                         except OSError:
                             shutil.copytree(spath, tpath)
                             shutil.rmtree(spath)
-    else:
+    elif os.path.isdir(target_dir):
         # Make sure to link any extras directories in the source path to the
         # target path
         target_specials = [x for x in os.listdir(target_dir) if x.lower() in JELLYFIN_SPECIAL_DIRS]
@@ -292,7 +302,8 @@ def fsop(source, target, link=False, dry_run=False, skip_clean=False):
     # empty
     if not skip_clean:
         remove_dir_if_empty(directory, dry_run=dry_run)
-        remove_dir_if_empty(target_dir, dry_run=dry_run)
+        if os.path.isdir(target_dir):
+            remove_dir_if_empty(target_dir, dry_run=dry_run)
 
 
 def remove_dir_if_empty(directory, dry_run=False):
@@ -307,7 +318,7 @@ def remove_dir_if_empty(directory, dry_run=False):
                 fsop(p, None, skip_clean=True)
 
     content = os.listdir(directory)
-    if not content or all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in content)]):
+    if not content or all([x.lower() in JELLYFIN_SPECIAL_DIRS for x in content]):
         for l in content:
             path = os.path.join(directory, l)
             if os.path.islink(path):
@@ -568,11 +579,24 @@ def arrange_files(
                     linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
                 link = os.path.join(d, linkname)
                 link_to_directory(newname, link, exclusive_dir=exclusive_dir, dry_run=dry_run)
+                nfo_path = f'{link.rsplit(".", 1)[0]}.nfo'
+                old_file_exists = os.path.isfile(nfo_path)
                 if write_nfo:
-                    nfo_path = f'{link.rsplit(".", 1)[0]}.nfo'
-                    log.info(f'Uncertain TVDB status, write basic nfo to {nfo_path}')
+                    if old_file_exists:
+                        stat = os.stat(nfo_path)
+                        if stat.st_mtime < epfile.updated.timestamp():
+                            log.info(f'Updating basic nfo at {nfo_path}')
+                            if not dry_run:
+                                file_to_nfo(epfile, nfo_path)
+                    else:
+                        log.info(f'Uncertain TVDB status, write basic nfo to {nfo_path}')
+                        if not dry_run:
+                            file_to_nfo(epfile, nfo_path)
+                elif old_file_exists:
+                    log.info(f'Removing deprecated nfo at {nfo_path}')
                     if not dry_run:
-                        file_to_nfo(epfile, nfo_path)
+                        os.remove(nfo_path)
+
             elif exclusive_dir:
                 linkname = os.path.basename(newname)
                 link = os.path.join(exclusive_dir, linkname)

@@ -387,7 +387,7 @@ def get_tvdb_episode(aid, epno):
         return ("s", str_epno)
 
     if 'episodeoffset' in maps:
-        ret_epno = int(m['offset']) + int_epno
+        ret_epno = int(maps['episodeoffset']) + int_epno
         if ret_epno < 1:
             return (None, None)
         return (tvdb_season, str(int(maps['episodeoffset']) + int_epno))
