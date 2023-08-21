@@ -109,6 +109,90 @@ def file_to_nfo(epfile, nfo_path):
 
     os.rename(f'{nfo_path}.tmp', nfo_path)
 
+def get_related_anime(anime):
+    relations = [x[1] for x in anime.relations]
+    res = [anime]
+    for r in relations:
+        res.append(r)
+        r_relations = [x[1] for x in r.relations if x[1] not in relations + res]
+        relations.extend(r_relations)
+
+    return res
+
+def create_anime_collection(anime, xml_path, movie_path=None, tv_path=None, anidb_path=None, name=None):
+    main = anime
+    relations = get_related_anime(anime)
+    if len(relations) < 2:
+        return
+    relations.sort(key=lambda x: x.air_date)
+
+    paths = [x for x in [movie_path, tv_path] if x]
+    if anidb_path:
+        paths.extend([os.path.join(anidb_path, 'Movies'),
+                     os.path.join(anidb_path, 'Series')])
+
+    if not name:
+        main = relations[0]
+        name = main.title
+
+    collection_dir = os.path.join(xml_path, name)
+    os.makedirs(collection_dir, exist_ok=True)
+    collection_xml = os.path.join(collection_dir, 'collection.xml')
+    if os.path.isfile(collection_xml):
+        stat = os.stat(collection_xml)
+        if stat.st_mtime > epfile.updated.timestamp():
+            return
+
+    troot = ET.Element('Item')
+    e = ET.SubElement(troot, 'LocalTitle')
+    e.text = name
+    if anime.air_date:
+        e = ET.SubElement(troot, 'FirstAired')
+        e.text = anime.air_date.strftime('%Y-%m-%d')
+        e = ET.SubElement(troot, 'ProductionYear')
+        e.text = anime.air_date.strftime('%Y')
+    items = ET.SubElement(troot, 'CollectionItems')
+    added_paths = []
+    for a in relations:
+        directories = []
+        if a.tmdbid:
+            directories.extend([os.path.join(x, f'adbb [tmdbid-{a.tmdbid}]') for x in paths])
+        if a.imdbid:
+            directories.extend([os.path.join(x, f'adbb [imdbid-{a.imdbid}]') for x in paths])
+        if a.tvdbid:
+            directories.extend([os.path.join(x, f'adbb [tvdbid-{a.tvdbid}]') for x in paths])
+        directories.extend([os.path.join(x, a.title.replace('/', '⁄').lstrip('.')) for x in paths])
+        present_dirs = [d for d in directories if os.path.isdir(d)]
+        for d in present_dirs:
+            for root, dirs, files in os.walk(d):
+                dirs[:] = []
+                if not files:
+                    continue
+                if 'Movies' in root:
+                    for f in files:
+                        my_path = os.path.join(root, f)
+                        if my_path in added_paths:
+                            continue
+                        i = ET.SubElement(items, 'CollectionItem')
+                        e = ET.SubElement(i, 'Path')
+                        e.text = os.path.join(root, f)
+                        added_paths.append(my_path)
+                else:
+                        if root in added_paths:
+                            continue
+                        i = ET.SubElement(items, 'CollectionItem')
+                        e = ET.SubElement(i, 'Path')
+                        e.text = root
+                        added_paths.append(root)
+
+    etree = ET.ElementTree(element=troot)
+    ET.indent(etree)
+
+    adbb.log.info(f'Updating collection at {collection_xml}')
+    with open(collection_xml, 'w', encoding='utf-8') as f:
+        f.write('<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n')
+        etree.write(f, encoding='unicode', xml_declaration=False)
+        f.write('\n')
 
 def get_command_logger(debug=False, syslog=False):
     logger = logging.getLogger(__name__)
