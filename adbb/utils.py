@@ -99,7 +99,7 @@ def file_to_nfo(epfile, nfo_path):
             e.text = season
             e = ET.SubElement(root, 'episode')
             e.text = episode.episode_number.strip('Ss')
-            e = ET.SubElement(root, 'uniqueid', attrs={'type': 'anidb', 'default': 'true' })
+            e = ET.SubElement(root, 'uniqueid', attrib={'type': 'anidb', 'default': 'true' })
             e.text = str(episode.eid)
             etree = ET.ElementTree(element=root)
             ET.indent(etree)
