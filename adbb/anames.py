@@ -362,7 +362,8 @@ def get_tvdb_episode(aid, epno):
                     # Exact match for episode
                     tvdb_epno = m['epmap'][str_epno]
                     if tvdb_epno == "0" or type(tvdb_epno) == tuple and tvdb_epno[0] == "0":
-                        return (None, None)
+                        tvdb_season = None
+                        continue
                     if 'tvdbseason' in m:
                         tvdb_season = m['tvdbseason']
                     return (tvdb_season, tvdb_epno)
@@ -382,7 +383,10 @@ def get_tvdb_episode(aid, epno):
                 if ret_epno < 1:
                     return (None, None)
                 return (tvdb_season, str(ret_epno))
-    if anidb_season == "0" or not tvdb_season:
+    if not tvdb_season:
+        # No season specified or episode mapped to 0
+        return (None, None)
+    if anidb_season == "0":
         # special, but not explicitly mapped in anime-list
         return ("s", str_epno)
 
