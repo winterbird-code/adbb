@@ -142,7 +142,7 @@ class AniDBObj(object):
 
     def __getattr__(self, name):
         local_vars = vars(self)
-        if not name == 'updated':
+        if name not in ('updated', 'relations'):
             local_name = "_{}".format(name)
             # adbb._log.debug("Requested attribute {} (in local_vars: {})".format(
             #    name, local_name in local_vars))
@@ -152,6 +152,8 @@ class AniDBObj(object):
         self._updating.acquire()
         self._updating.release()
         self.update_if_old()
+        if name == 'relations':
+            return self.relations()
         return getattr(self.db_data, name, None)
 
 
