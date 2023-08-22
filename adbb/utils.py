@@ -124,7 +124,7 @@ def create_anime_collection(anime, xml_path, movie_path=None, tv_path=None, anid
     relations = get_related_anime(anime)
     if len(relations) < 2:
         return
-    relations.sort(key=lambda x: x.air_date)
+    relations.sort(key=lambda x: x.air_date or datetime.date.today())
 
     paths = [x for x in [movie_path, tv_path] if x]
     if anidb_path:
@@ -308,6 +308,8 @@ def fsop(source, target, link=False, dry_run=False, skip_clean=False):
         target_dir, target_name = os.path.split(target)
         if not dry_run:
             os.makedirs(target_dir, exist_ok=True)
+    else:
+        target_dir = None
 
     for f in all_files:
         path = os.path.join(directory, f)
@@ -368,7 +370,7 @@ def fsop(source, target, link=False, dry_run=False, skip_clean=False):
                         except OSError:
                             shutil.copytree(spath, tpath)
                             shutil.rmtree(spath)
-    elif os.path.isdir(target_dir):
+    elif target_dir and os.path.isdir(target_dir):
         # Make sure to link any extras directories in the source path to the
         # target path
         target_specials = [x for x in os.listdir(target_dir) if x.lower() in JELLYFIN_SPECIAL_DIRS]
@@ -386,7 +388,7 @@ def fsop(source, target, link=False, dry_run=False, skip_clean=False):
     # empty
     if not skip_clean:
         remove_dir_if_empty(directory, dry_run=dry_run)
-        if os.path.isdir(target_dir):
+        if target_dir and os.path.isdir(target_dir):
             remove_dir_if_empty(target_dir, dry_run=dry_run)
 
 
