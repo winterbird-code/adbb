@@ -11,6 +11,7 @@ import socket
 import signal
 import sys
 import time
+import configparser
 import urllib
 import xml.etree.ElementTree as ET
 
@@ -109,39 +110,42 @@ def file_to_nfo(epfile, nfo_path):
 
     os.rename(f'{nfo_path}.tmp', nfo_path)
 
-def get_related_anime(anime):
-    relations = [x[1] for x in anime.relations]
+def get_related_anime(anime, exclude=[]):
+    relations = [x[1] for x in anime.relations if x[1] not in exclude]
     res = [anime]
     for r in relations:
         res.append(r)
-        r_relations = [x[1] for x in r.relations if x[1] not in relations + res]
+        r_relations = [x[1] for x in r.relations if x[1] not in relations + res + exclude]
         relations.extend(r_relations)
 
     return res
 
-def create_anime_collection(anime, xml_path, movie_path=None, tv_path=None, anidb_path=None, name=None):
-    main = anime
-    relations = get_related_anime(anime)
+def create_anime_collection(
+        anime,
+        xml_path,
+        movie_path=None,
+        tv_path=None,
+        anidb_path=None,
+        name=None,
+        exclude=[]):
+    if not name:
+        name = anime.title
+
+    collection_dir = os.path.join(xml_path, name)
+    collection_xml = os.path.join(collection_dir, 'collection.xml')
+    if os.path.isfile(collection_xml):
+        stat = os.stat(collection_xml)
+        if stat.st_mtime > anime.updated.timestamp():
+            return
+    relations = get_related_anime(anime, exclude=exclude)
     if len(relations) < 2:
         return
-    relations.sort(key=lambda x: x.air_date or datetime.date.today())
 
     paths = [x for x in [movie_path, tv_path] if x]
     if anidb_path:
         paths.extend([os.path.join(anidb_path, 'Movies'),
                      os.path.join(anidb_path, 'Series')])
 
-    if not name:
-        main = relations[0]
-        name = main.title
-
-    collection_dir = os.path.join(xml_path, name)
-    os.makedirs(collection_dir, exist_ok=True)
-    collection_xml = os.path.join(collection_dir, 'collection.xml')
-    if os.path.isfile(collection_xml):
-        stat = os.stat(collection_xml)
-        if stat.st_mtime > epfile.updated.timestamp():
-            return
 
     troot = ET.Element('Item')
     e = ET.SubElement(troot, 'LocalTitle')
@@ -189,6 +193,7 @@ def create_anime_collection(anime, xml_path, movie_path=None, tv_path=None, anid
     ET.indent(etree)
 
     adbb.log.info(f'Updating collection at {collection_xml}')
+    os.makedirs(collection_dir, exist_ok=True)
     with open(collection_xml, 'w', encoding='utf-8') as f:
         f.write('<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n')
         etree.write(f, encoding='unicode', xml_declaration=False)
@@ -809,6 +814,11 @@ def get_jellyfin_anime_sync_args():
             default=None
             )
     parser.add_argument(
+            '-o', '--collection-path',
+            help="Path to jellyfin collection library, see JELLYFIN.md for details about creating collections",
+            default=None
+            )
+    parser.add_argument(
             'path',
             help="Where the anime is stored"
             )
@@ -979,7 +989,7 @@ def jellyfin_anime_sync():
                     runtime = datetime.datetime.now()-starttime
                     status_msg = f'{iterations}/{len(full_path_list)} paths processed in {str(runtime)}.'
                     time.sleep(delay)
-
+            
             # Clean up broken symlinks/empty dirs
             links = {}
             for path in [args.tvdb_library, args.moviedb_library]:
@@ -1013,6 +1023,36 @@ def jellyfin_anime_sync():
             multilinked = {t: l for t,l in links.items() if len(l) > 1}
             for t, l in multilinked.items():
                 adbb.log.warning(f"{t} linked to from multiple places: {l}")
+
+            # create and update collections
+            if args.collection_path:
+                conf_file = os.path.join(args.collection_path, '.adbb.ini')
+                collections = []
+                conf = configparser.ConfigParser()
+                try:
+                    with open(conf_file, 'r', encoding='utf-8') as f:
+                        conf.read_file(f)
+                    collections = conf.sections()
+                except OSError:
+                    adbb.log.warning(f'Could not open ini configuration at {conf}')
+
+                for collection in collections:
+                    try:
+                        anime = int(collection)
+                    except ValueError:
+                        anime = collection
+                    name = conf.get(collection, 'name', fallback=None)
+                    exclude = conf.get(collection, 'exclude', fallback=[])
+                    if exclude:
+                        exclude = [adbb.Anime(int(x)) for x in exclude.split(',')]
+                    create_anime_collection(adbb.Anime(anime),
+                                            args.collection_path,
+                                            movie_path=args.moviedb_library,
+                                            tv_path=args.tvdb_library,
+                                            anidb_path=args.anidb_library,
+                                            name=name,
+                                            exclude=exclude)
+
             runtime = datetime.datetime.now()-starttime
             log.info(f"Completed sync in {str(runtime)}")
         except (sqlalchemy.exc.OperationalError, jellyfin_apiclient_python.exceptions.HTTPException) as e:

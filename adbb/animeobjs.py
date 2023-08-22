@@ -152,8 +152,12 @@ class AniDBObj(object):
         self._updating.acquire()
         self._updating.release()
         self.update_if_old()
+        # No, I have no idea what I'm doing here...
         if name == 'relations':
-            return self.relations()
+            relations = self.relations
+            if isinstance(relations, list):
+                return relations
+            return relations()
         return getattr(self.db_data, name, None)
 
 
