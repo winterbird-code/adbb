@@ -331,7 +331,7 @@ class AniDBListener(threading.Thread):
                 reason = resp.resstr
                 if code in (600, 601, 602, 604):
                     self._sender.set_banned(code=code, reason=reason)
-                elif code in (598):
+                elif code in (598,):
                     # We get here if an encrypted session has timed out
                     # No need to log in again if all that's left in queue is a
                     # logout command.
