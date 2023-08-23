@@ -13,6 +13,7 @@ import sys
 import time
 import configparser
 import urllib
+import urllib.error
 import xml.etree.ElementTree as ET
 
 import adbb
@@ -46,6 +47,44 @@ JELLYFIN_SPECIAL_DIRS = [
         'trailers',
         'misc'
         ]
+
+JELLYFIN_ART_TYPES = [
+        'logo',
+        'clearart',
+        'disc',
+        'poster',
+        'backdrop',
+        'banner',
+        'thumb'
+        ]
+
+FANART_MAP = {
+        # movies
+        'hdmovielogo': 'logo',
+        'hdmovieclearart': 'clearart',
+        'moviedisc': 'disc',
+        'movielogo': 'logo',
+        'movieposter': 'poster',
+        'movieart': 'clearart',
+        'moviebackground': 'backdrop',
+        'moviebanner': 'banner',
+        'moviethumb': 'thumb',
+
+        # tv
+        'clearlogo': 'logo',
+        'hdtvlogo': 'logo',
+        'clearart': 'clearart',
+        'showbackground': 'backdrop',
+        'tvthumb': 'thumb',
+        'seasonposter': 'poster',
+        'seasonthumb': 'thumb',
+        'hdclearart': 'clearart',
+        'tvbanner': 'banner',
+        'characterart': 'clearart',
+        'tvposter': 'poster',
+        'seasonbanner': 'banner',
+        }
+
 
 RE_JELLYFIN_SEASON_DIR = re.compile(r'^Season \d+$', re.I)
 
@@ -141,12 +180,46 @@ def create_anime_collection(
     if len(relations) < 2:
         return
 
+    adbb.log.debug(f'Will create collection for {len(relations)} entries related to {anime}')
     paths = [x for x in [movie_path, tv_path] if x]
     if anidb_path:
         paths.extend([os.path.join(anidb_path, 'Movies'),
                      os.path.join(anidb_path, 'Series')])
 
+    os.makedirs(collection_dir, exist_ok=True)
+    # Fanart
+    all_arts = { k: [] for k in JELLYFIN_ART_TYPES }
+    for anime in relations:
+        arts = anime.fanart
+        for key, value in arts.items():
+            if key in FANART_MAP:
+                art_type = FANART_MAP[key]
+                urls = [x['url'] for x in value]
+                all_arts[art_type].extend(urls)
+    for art_type, urls in all_arts.items():
+        items = 1
+        if art_type == 'backdrop':
+            items = 5
+        random.shuffle(urls)
+        chosen = urls[:items]
+        for item, url in enumerate(chosen, start=1):
+            ext = url.rsplit('.', 1)[-1]
+            if item > 1:
+                fname = f'{art_type}{item}.{ext}'
+            else:
+                fname = f'{art_type}.{ext}'
+            tmpfile = os.path.join(collection_dir, f'.{fname}.tmp')
+            try:
+                with open(tmpfile, 'wb') as f:
+                    adbb.download_fanart(f, url)
+            except urllib.error.HTTPError as e:
+                adbb.log.error('Failed to download fanart at {url}: {e}')
+                os.remove(tmpfile)
+                continue
+            os.rename(tmpfile, os.path.join(collection_dir, fname))
 
+
+    # XML
     troot = ET.Element('Item')
     e = ET.SubElement(troot, 'LocalTitle')
     e.text = name
@@ -193,7 +266,6 @@ def create_anime_collection(
     ET.indent(etree)
 
     adbb.log.info(f'Updating collection at {collection_xml}')
-    os.makedirs(collection_dir, exist_ok=True)
     with open(collection_xml, 'w', encoding='utf-8') as f:
         f.write('<?xml version="1.0" encoding="utf-8" standalone="yes" ?>\n')
         etree.write(f, encoding='unicode', xml_declaration=False)

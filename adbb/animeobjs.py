@@ -16,11 +16,14 @@
 # along with adbb.  If not, see <http://www.gnu.org/licenses/>.
 
 import datetime
+import json
 import math
 import os
 import random
 import re
 import threading
+import urllib.parse
+import urllib.request
 
 import sqlalchemy
 
@@ -167,6 +170,7 @@ class Anime(AniDBObj):
         self._aid = None
         self._titles = None
         self._title = None
+        self._in_mylist = None
 
         try:
             if isinstance(init, int):
@@ -318,6 +322,32 @@ class Anime(AniDBObj):
     @property
     def imdbid(self):
         return adbb.anames.get_imdbid(self.aid)
+    @property
+    def fanart(self):
+        if not adbb.fanart_key:
+            return {}
+        movie_id = [x for x in [self.tmdbid, self.imdbid] if x]
+        tv_id = self.tvdbid
+        headers = {
+                'api-key': adbb.fanart_key,
+                'content-type': 'application/json'
+                }
+        base_url = 'https://webservice.fanart.tv/'
+        if movie_id:
+            url = urllib.parse.urljoin(base_url, f'/v3/movies/{movie_id[0]}')
+        elif tv_id:
+            url = urllib.parse.urljoin(base_url, f'/v3/tv/{tv_id}')
+        else:
+            return {}
+        req = urllib.request.Request(url, headers=headers)
+        try:
+            with urllib.request.urlopen(req) as f:
+                res = json.loads(f.read())
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                adbb.log.error(f'Failed to fetch fanart for {self}: {e}')
+            return {}
+        return res
 
 
     def __eq__(self, other):

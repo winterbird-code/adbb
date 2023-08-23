@@ -22,8 +22,11 @@ import logging
 import logging.handlers
 import sys
 import random
+import urllib.parse
+import urllib.request
 
 import adbb.db
+import adbb.errors
 from adbb.link import AniDBLink
 
 from adbb.animeobjs import Anime, AnimeTitle, Episode, File, Group
@@ -37,7 +40,7 @@ anidb_api_version = 3
 log = None
 _anidb = None
 _sessionmaker = None
-
+fanart_key = None
 
 def init(
         sql_db_url,
@@ -48,7 +51,8 @@ def init(
         logger=None,
         netrc_file=None,
         outgoing_udp_port=random.randrange(9000, 10000),
-        api_key=None):
+        api_key=None,
+        fanart_api_key=None):
 
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -67,8 +71,9 @@ def init(
             'adbb %(filename)s/%(funcName)s:%(lineno)d - %(message)s'))
         logger.addHandler(lh)
 
-    global log, _anidb, _sessionmaker
+    global log, _anidb, _sessionmaker, fanart_key
     log = logger
+    fanart_key = fanart_api_key
 
     try:
         nrc = netrc.netrc(netrc_file)
@@ -83,7 +88,7 @@ def init(
             try:
                 username, account, password = nrc.authenticators(host)
             except TypeError:
-                pass
+                continue
             if username and password:
                 api_user = username
                 api_pass = password
@@ -116,6 +121,21 @@ def init(
                 if username == u:
                     parts[2] = f'{username}:{password}@{host}'
         sql_db_url='/'.join(parts)
+        
+        if not fanart_key:
+            for host in ['fanart.tv', 'assets.fanart.tv', 'webservice.fanart.tv', 'api.fanart.tv']:
+                try:
+                    username, account, password = nrc.authenticators(host)
+                except TypeError:
+                    continue
+                key = [x for x in [account, password] if x]
+                if not key:
+                    continue
+                log.debug('Fanart key found in netrc')
+                fanart_key = key[0]
+
+            
+
     _sessionmaker = adbb.db.init_db(sql_db_url)
 
 
@@ -126,6 +146,20 @@ def get_session():
 def close_session(session):
     session.close()
 
+def download_fanart(filehandle, url, preview=False):
+    if not fanart_key:
+        raise adbb.errors.FanartError('No fanart key available')
+    my_url = urllib.parse.urlparse(url)
+    if preview:
+        my_url = urllib.parse.urlparse(url)._replace(
+                scheme='https',
+                path=urllib.parse.quote(my_url.path.replace('/fanart/', '/preview/')))
+    else:
+        my_url = urllib.parse.urlparse(url)._replace(scheme='https', path=urllib.parse.quote(my_url.path))
+
+    req = urllib.request.Request(my_url.geturl(), headers={'api-key': fanart_key})
+    with urllib.request.urlopen(req) as f:
+        filehandle.write(f.read())
 
 def close():
     global _anidb
