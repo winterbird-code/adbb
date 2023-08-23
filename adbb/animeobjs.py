@@ -286,12 +286,16 @@ class Anime(AniDBObj):
     def in_mylist(self):
         if self._in_mylist != None:
             return self._in_mylist
-        sess = self._get_db_session()
-        res = sess.query(FileTable).filter(
-            FileTable.aid == self._aid,
-            FileTable.lid != None).first()
-        self._close_db_session(sess)
-        self._in_mylist = bool(res)
+        try:
+            sess = self._get_db_session()
+            res = sess.query(FileTable).filter(
+                FileTable.aid == self._aid,
+                FileTable.lid != None).first()
+            self._close_db_session(sess)
+            self._in_mylist = bool(res)
+        except sqlalchemy.exc.OperationalError as e:
+            adbb.log.error(f'Failed to get mylist status of {self} from database: {e}')
+            return None
         return self._in_mylist
 
     @property
@@ -373,6 +377,22 @@ class Episode(AniDBObj):
                 else:
                     res = (season, (epno, my_ep-1))
         return res
+
+    @property
+    def in_mylist(self):
+        if self._in_mylist != None:
+            return self._in_mylist
+        try:
+            sess = self._get_db_session()
+            res = sess.query(FileTable).filter(
+                FileTable.eid == self.eid,
+                FileTable.lid != None).first()
+            self._close_db_session(sess)
+            self._in_mylist = bool(res)
+        except sqlalchemy.exc.OperationalError as e:
+            adbb.log.error(f'Failed to get mylist status of {self} from database: {e}')
+            return None
+        return self._in_mylist
 
     @property
     def eid(self):
@@ -531,6 +551,10 @@ class File(AniDBObj):
             anime, episodes = self._guess_anime_ep_from_file(aid=self._anime.aid)
             self._episode = episodes[0]
         return self._episode
+
+    @property
+    def in_mylist(self):
+        return bool(self.lid)
 
     @property
     def group(self):
