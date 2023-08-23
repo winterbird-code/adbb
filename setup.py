@@ -26,7 +26,7 @@ setup(
         entry_points={
             'console_scripts': [
                 'arrange_anime=adbb.utils:arrange_anime',
-                'jellyfin_anime_sync=adbb.utils:jellyfin_anime_sync'
+                'jellyfin_anime_sync=adbb.jellyfin:jellyfin_anime_sync'
                 ]
             },
         install_requires=[
