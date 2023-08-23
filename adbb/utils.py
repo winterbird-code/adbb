@@ -110,12 +110,12 @@ def file_to_nfo(epfile, nfo_path):
 
     os.rename(f'{nfo_path}.tmp', nfo_path)
 
-def get_related_anime(anime, exclude=[]):
-    relations = [x[1] for x in anime.relations if x[1] not in exclude]
+def get_related_anime(anime, exclude=[], only_in_mylist=True):
+    relations = [x[1] for x in anime.relations if x[1] not in exclude and (not only_in_mylist or x[1].in_mylist)]
     res = [anime]
     for r in relations:
         res.append(r)
-        r_relations = [x[1] for x in r.relations if x[1] not in relations + res + exclude]
+        r_relations = [x[1] for x in r.relations if x[1] not in relations + res + exclude and (not only_in_mylist or x[1].in_mylist)]
         relations.extend(r_relations)
 
     return res

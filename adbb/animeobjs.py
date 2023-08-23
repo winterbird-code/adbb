@@ -283,6 +283,18 @@ class Anime(AniDBObj):
         self._updating.release()
 
     @property
+    def in_mylist(self):
+        if self._in_mylist != None:
+            return self._in_mylist
+        sess = self._get_db_session()
+        res = sess.query(FileTable).filter(
+            FileTable.aid == self._aid,
+            FileTable.lid != None).first()
+        self._close_db_session(sess)
+        self._in_mylist = bool(res)
+        return self._in_mylist
+
+    @property
     def relations(self):
         try:
             relations = [(x.relation_type, Anime(x.related_aid)) for x in self.db_data.relations]
