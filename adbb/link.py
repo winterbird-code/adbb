@@ -375,7 +375,7 @@ class AniDBListener(threading.Thread):
                     willpop.append(tag)
 
         for tag in willpop:
-            if isinstance(cmd, adbb.commands.AuthCommand):
+            if isinstance(cmd, adbb.commands.AuthCommand) or isinstance(cmd, adbb.commands.EncryptCommand):
                 self._sender.reauthenticate()
             cmd = self.cmd_queue.pop(tag)
             cmd.handle_timeout(self._sender)
