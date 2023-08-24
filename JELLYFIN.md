@@ -16,9 +16,9 @@ So what can be done about those things?
   - Mylist? Update manually or use an external tool.
   - IP Bans? There are a few fancy ways to handle it, but it's there for a reason: AniDB doesn't want heavy usage of the API. The only polite solution is to avoid the API when possible.
   - Artwork? Use [jellyfin-plugin-tvdb](https://github.com/jellyfin/jellyfin-plugin-tvdb) in combination with [jellyfin-plugin-fanart](https://github.com/jellyfin/jellyfin-plugin-fanart). But bewere, if you add the same tvdbid to multiple series [jellyfin will be confused about the episodes watched status](https://github.com/jellyfin/jellyfin/issues/8485).
-  - The seasons/relations thing? No idea.
+  - The seasons/relations thing? It's not perfect, but you can add related series/movies to a [collection](#collections).
 
-I decided to solve the three first points using this adbb python library since the groundwork was already done, and because there is a third awesome project, [Anime-Lists](https://github.com/Anime-Lists/anime-lists), that makes it possible.
+That was the main problem I wanted to solve with this tool, and fortunately there is a third awesome project, [Anime-Lists](https://github.com/Anime-Lists/anime-lists), that makes it possible.
 
 ## The jellyfin_anime_sync tool
 
@@ -26,11 +26,12 @@ This tool is installed with the adbb library and has three main purposes:
 
   - Sync mylist status, including watched status, with AniDB.
   - Import new files to the libraries.
-  - Maintain 4 (or 6, depending on how you count) different libraries:
+  - Maintain 5 (or 6, or 7, depending on how you count) different libraries:
     - "main" library organized after AniDB metadata,  this is where all the actual files are located. If it contains the subfolders "Movies" and "Series" the files will be sorted accordingly. Can be added to jellyfin if you only want to use the AniDB plugin.
     - "TVDB" library organized after TVDB mappings in Anime-Lists, use with [jellyfin-plugin-tvdb](https://github.com/jellyfin/jellyfin-plugin-tvdb)
     - "MOVIEDB" library organized after TMDB and IMDB mappings in Anime-Lists, use with the built in TMDB scraper
     - "ANIDB" library organized after AniDB metadata, but contains only files that could not be mapped to TVDB or MOVIEDB libraries, contains sub-libraries "Movies" and "Series" use with the [AniDB-plugin](https://github.com/jellyfin/jellyfin-plugin-anidb)
+    - "collection"-meta library with related series/movies 
 
 Some important notes:
 
@@ -54,7 +55,7 @@ When trying out this tool for the first time, make sure to read these instructio
   2. If you haven't used adbb before, or don't have a fresh cache database, make sure to set `--sleep-delay` to at least a couple of minutes (300 is probably a good start) to avoid API bans. If you get banned anyway, do *not* restart
      the tool until at least 24 hours has passed, and make sure to bump the sleep delay a couple of more minutes.
   3. Run with the `--dry-run` flag first and check the output/logs that the tool does what you expect it to.
-  4. Be patient, for a resonable sized library it will probably take at least 24 hours or more to run the first iteration. You can send the `USR1` signal with `killall -USR1 jellyfin_anime_sync` to make it log the current status.
+  4. Be patient, for a resonable sized library it will probably take at least 24 hours, and possibly weeks, to run the first iteration. You can send the `USR1` signal with `killall -USR1 jellyfin_anime_sync` to make it log the current status.
      You can also use `--debug` to get *very* verbose information about what's going on.
   5. If you decide to use this tool for managing the jellyfin libraries, make sure to use the `--no-watched` flag until the jellyfin libraries has been populated and you've updated watched status in jellyfin.
 
@@ -98,7 +99,7 @@ These will be linked to from the TVDB, MOVIEDB and ANIDB media libraries:
 ```
 When files are detected in the `staging-path` they will be identified by adbb, imported to the main library and linked to from the proper jellyfin library. This path is polled after each other directory is traversed (so roughly every `sleep-delay` + a few seconds). I would recommend to add files atomicaly to this path (first place them somewhere else on the same filesystem and then use `mv` to move them to the staging directory). To help adbb to identify the file it should preferably be added to a sub-directory named after the anidb title.
 
-if the `--Xdb-library' arguments are obmitted only the main library will be sorted and can be used with the AniDB Jellyfin plugin. To only sync mylist state you obmit the `--rearrange` flag; see example below.
+if the `--Xdb-library` arguments are obmitted only the main library will be sorted and can be used with the AniDB Jellyfin plugin. To only sync mylist state you obmit the `--rearrange` flag; see example below.
 
 ### Example usage - Syncing mylist/watched status
 
@@ -135,7 +136,7 @@ It's not a true daemon as it will run in the foreground. No init-script or syste
 
 ### Authentication
 
-Although the tool support command line parameters for anidb/jellyfin/database credentials, it's highly recommended to use a [`.netrc`](https://everything.curl.dev/usingcurl/netrc) file instead.
+Although the tool support command line parameters for anidb/jellyfin/database credentials, it's highly recommended to use a [`.netrc`](README.md#netrc) file instead.
 
 ### Filenames
 
@@ -156,3 +157,45 @@ For the TVDB/MOVIEDB libraries the naming schema is simplified:
 "adbb [{source}id-{source.id}]/{original filename}"
 ```
 There is some special handling of multiep/partsfiles, but this is roughly how it will look. The idea is that the name in the main library should be mostly for human consumption (but also parseable by jellyfin, kodi or whatever media center you use); you should understand exactly what is in the file by reading it, while the TVDB/MOVIEDB names are just for Jellyfin to easily parse.
+
+### Collections
+The tool has an advanced, optional, feature to autmatically create collections of related series. If you have enabled [fanart.tv integration](README.md#fanart) random fanart from all included series/movies will automatically be downloaded.
+
+1. Create a directory on your filesystem where you want to store the collection metadata
+2. Create a new library in jellyfin. Leave the "Content type" field empty, but give it a good name (for example "Anime Collections")
+3. Create a configuration file named `.adbb.ini` in the collections directory; see the configuration description below.
+4. Run jellyfin-anime-sync and include the option `--collection-path /path/to/collections`. The collections are created in the last step of the sync, once it has sorted all files/links in the libraries.
+
+The configuration file is a simple `.ini` file and it must be called `.adbb.ini` and be located in the root of the collections directory.
+```ini
+## The section header is the name or ID of the "main" series in the collection.
+## Unless otherwise specified the name of this anime will also be the name of the collection
+##
+## Valid configuration keys per section:
+## name - Custom name for the collection instead of the name of the "main" series
+## exclude - comma-separated list of IDs that should not be considered part of this collection.
+##           The dependency graphs on anidb makes these easy to identify.
+
+# Create a collection containing all series and movies related to Boku no Hero Academia
+[Boku no Hero Academia]
+
+# Create a collection named CLAMP containing all series and movies in the CLAMP multiverse
+# Using Tsubasa Chronicles as main series (but really... any would do)
+[27339]
+name=CLAMP
+
+# Create a collection for Lupin III, but exclude the crossovers that otherwise would drag in
+# all of Meitantei Conan and Cat's Eye as well. 
+[Lupin Sansei]
+exclude=6432,17634
+```
+
+### nfo-creation
+The tool has optional support to create basic nfo files for series, movies and episodes. The metadata provided is limited to what can be fetched from the UDP API (excluding anime description, because I can't bring myself to implement that).
+If [fanart](README.md#fanart) is enabled, random fanart will be downloaded to the series/movies directory. To enable nfo-creation, provide the `--write-nfo`-flag to your command line. This metadata information is provided:
+  * title (romaji if available, english as fallback)
+  * originaltitle (kanji)
+  * year
+  * air date
+  * rating
+  * anidb ID
