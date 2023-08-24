@@ -247,6 +247,8 @@ class AniDBLink(threading.Thread):
             self._banned = 1
         else:
             self._banned *= 2
+        with self._auth_lock:
+            self._authenticating.clear()
         self.reauthenticate()
 
 
@@ -382,7 +384,5 @@ class AniDBListener(threading.Thread):
                     willpop.append(tag)
 
         for tag in willpop:
-            if isinstance(cmd, adbb.commands.AuthCommand) or isinstance(cmd, adbb.commands.EncryptCommand):
-                self._sender.reauthenticate()
             cmd = self.cmd_queue.pop(tag)
             cmd.handle_timeout(self._sender)
