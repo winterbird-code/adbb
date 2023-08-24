@@ -88,6 +88,7 @@ synonym) or 'Ranma 1/2 Nettou Hen' which has "Ranma" as an official title).
 * `tmdbid` - TMDB ID for this anime or None if not available.
 * `imdbid` - IMDB ID for this anime or None if not available.
 * `relations` - A list of tuples containing relations to this anime. The first entry in the tuple is a string describing the relation type and the second is an Anime-object for the related anime.
+* `fanart` - if [enabled](#fanart) it will return a dict directly translated from the json returned from the [fanart.tv API](https://fanarttv.docs.apiary.io/). Returns an empty dict if not enabled.
 
 The following attributes as returned from the AniDB API
 * `year`
@@ -229,6 +230,53 @@ The following attributes as returned from the AniDB API
 * `dateflag`
 * `last_release`
 * `last_activity`
+
+## Fanart
+The [Anime object](#anime-object) contains an attribute called `fanart` that can be used to fetch available fanart for that series/movie from [fanart.tv](https://fanart.tv) if two conditions are met:
+  * you must provide an [API key](https://fanart.tv/get-an-api-key/) either in the `init()`-call using the keyword `fanart_api_key` or by providing it in an [.netrc-file](#netrc).
+  * The series/movie must be properly mapped to a tvdb/tmdb/imdb-ID in [Anime-Lists](https://github.com/Anime-Lists/anime-lists)
+
+The `fanart` attribute just returns the metadata from the fanart.tv api; but the `adbb.download_fanart()`-method can be used to download the actual fanart. This example downloads the first background fanart the api returned.
+The attribute is directly translated from the json API, so for structure description you should check the [fanart.tv API reference](https://fanarttv.docs.apiary.io/). Note that it differs slightly between series and movies.
+```python
+import adbb
+
+api_key='secret'
+
+adbb.init('sqlite:///.adbb.db', netrc_file='.netrc', fanart_api_key=api_key)
+
+anime = adbb.Anime("Kemono no Souja Erin")
+
+fanart = anime.fanart
+background_url = fanart["showbackground"][0]["url"]
+with open("background.jpg", "w") as f:
+    # There is also a "preview" keyword-argument that can be set to "true" to download a low-resolution preview image
+    adbb.download_fanart(f, url)
+```
+
+## netrc
+Although you can provide usernames and passwords directly to the `init()` call it can be useful to have them stored elsewhere. `init()` supports the `netrc_file` keyword argument to fetch authentication information from a [.netrc](https://everything.curl.dev/usingcurl/netrc)-file. The library checks the `.netrc`-file for the following credentials:
+  * anidb username, password and [encryption key](#encryption). The `account` option is used to set the encryption key (machinename must be one of 'api.anidb.net', 'api.anidb.info', 'anidb.net')
+  * database credentials (machinename must match your mysql/postgres hostname)
+  * fanart API key (machinename must be one of 'fanart.tv', 'assets.fanart.tv', 'webservice.fanart.tv', 'api.fanart.tv'
+
+```netrc
+machine api.anidb.net
+        username winterbird
+        password supersecretpassword
+        account supersecretencryptionkey
+machine sql.localdomain
+        username adbb
+        password supersecretpassword
+machine fanart.tv
+        account supersecretapikey
+```
+
+## Encryption
+As per the [UDP API specification](https://wiki.anidb.net/UDP_API_Definition#ENCRYPT:_Start_Encrypted_Session) encrypted network traffic is not enabled by default but must be manually activated by the user.
+In the case of adbb, you activate encryption by providing your encryption key when initializeing the library. Either with the `api_key`-keyword argument to `init()` or by using a [.netrc](#netrc).
+
+You specify the encryption key yourself in your [AniDB Profile](http://anidb.net/perl-bin/animedb.pl?show=profile). It's way past 1990, you really shouldn't send usernames and password unencrypted over the internet.
 
 
 ## Utilities
