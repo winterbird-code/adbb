@@ -79,22 +79,12 @@ class AniDBLink(threading.Thread):
         self.request(req, self._encryption_handler)
 
     def _encryption_handler(self, resp):
-        self._api_key = hashlib.md5(bytes(self._api_key + resp.attrs['salt'], 'utf-8')).digest()
-        self._listener._cipher = AES.new(self._api_key, AES.MODE_ECB)
-        self._authenticating.set()
+        self._session_key = hashlib.md5(bytes(self._api_key + resp.attrs['salt'], 'utf-8')).digest()
+        self._listener._cipher = AES.new(self._session_key, AES.MODE_ECB)
+        adbb.log.info('Encrypted session established')
+        self._send_auth()
 
-
-    def _reauthenticate(self):
-        with self._auth_lock:
-            if self._authenticating.is_set() or self._authed.is_set():
-                return
-            if self._api_key and not self._listener._cipher:
-                self._start_encrypted_session()
-                self._authenticating.wait()
-                adbb.log.info('Encrypted session established, proceding with auth')
-            else:
-                self._authenticating.set()
-
+    def _send_auth(self):
         req = adbb.commands.AuthCommand(
                 self._user, 
                 self._pwd,
@@ -103,6 +93,17 @@ class AniDBLink(threading.Thread):
                 adbb.anidb_client_version,
                 nat=1)
         self.request(req, self._auth_handler)
+
+
+    def _reauthenticate(self):
+        with self._auth_lock:
+            if self._authenticating.is_set() or self._authed.is_set():
+                return
+            self._authenticating.set()
+        if self._api_key:
+            self._start_encrypted_session()
+        else:
+            self._send_auth()
 
     def _auth_handler(self, resp):
         self._banned = 0
@@ -167,11 +168,13 @@ class AniDBLink(threading.Thread):
             command = self._queue.pop()
             adbb.log.debug("sending command {} with tag {}".format(
                     command.command, command.tag))
-            if command.command != 'AUTH':
-                if not self._authed.is_set():
-                    self._reauthenticate()
+            if self._authed.is_set() or command.command in ('AUTH', 'ENCRYPT', 'PING'):
+                self._send_command(command)
+            else:
+                self.reauthenticate()
                 self._authed.wait()
-            self._send_command(command)
+                self._send_command(command)
+
             if command.command == 'LOGOUT':
                 break
 
@@ -179,6 +182,12 @@ class AniDBLink(threading.Thread):
         self._do_delay()
         if not self._session and command.command not in ('AUTH', 'PING', 'ENCRYPT'):
             raise AniDBMustAuthError("You must be authed to execute command {}".format(command.command))
+        if command.command == 'AUTH' and self._authed.is_set():
+            adbb.log.warning('Attempted double auth; ignoring')
+            return
+        elif command.command == 'ENCRYPT' and self._listener._cipher:
+            adbb.log.warning('Attempted double encrypt command; ignoring')
+            return
         command.authorize(self._session)
         self._counter += 1
         self._last_packet = time()
@@ -205,10 +214,8 @@ class AniDBLink(threading.Thread):
         command.callback = callback
         command.tag = self._new_tag()
         self._listener.cmd_queue[command.tag] = command
-        adbb.log.debug("Queued command {} with tag {}".format(
-                command.command, command.tag))
-        # special case, AUTH and ENCRYPT commands should not be queued but sent asap.
-        if command.command in ('AUTH', 'ENCRYPT'):
+        adbb.log.debug("Queued command {} with tag {}".format( command.command, command.tag))
+        if command.command in ('ENCRYPT', 'AUTH', 'PING'):
             self._send_command(command)
             return
         if prio:
@@ -226,7 +233,7 @@ class AniDBLink(threading.Thread):
         self._reauthenticate()
 
     def stop(self):
-        if self._authed.isSet():
+        if self._authed.is_set():
             adbb.log.debug("Logging out from AniDB")
             req = adbb.commands.LogoutCommand()
             self.request(req, self._logout_handler)
@@ -335,7 +342,7 @@ class AniDBListener(threading.Thread):
                     # We get here if an encrypted session has timed out
                     # No need to log in again if all that's left in queue is a
                     # logout command.
-                    if all([x.command == 'LOGOUT' for x in self.cmd_queue.values]):
+                    if all([x.command == 'LOGOUT' for x in self.cmd_queue.values()]):
                         self.stop()
                     else:
                         self._sender.reauthenticate()
@@ -368,7 +375,7 @@ class AniDBListener(threading.Thread):
             if not tag:
                 continue
             if cmd.started:
-                adbb.log.debug("Command {} started at {} (now {}".format(
+                adbb.log.debug("Command {} started at {} (now {})".format(
                         tag, cmd.started, time()))
                 if time() - cmd.started > self.timeout:
                     adbb.log.warning("Command {} timed out".format(tag))
