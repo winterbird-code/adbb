@@ -82,6 +82,7 @@ class AniDBLink(threading.Thread):
         self._session_key = hashlib.md5(bytes(self._api_key + resp.attrs['salt'], 'utf-8')).digest()
         self._listener._cipher = AES.new(self._session_key, AES.MODE_ECB)
         adbb.log.info('Encrypted session established')
+        self._banned = 0
         self._send_auth()
 
     def _send_auth(self):
