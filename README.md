@@ -85,10 +85,10 @@ synonym) or 'Ranma 1/2 Nettou Hen' which has "Ranma" as an official title).
 * `title` - main title of this Anime
 * `updated` - datetime when information about this Anime was last fetched from AniDB
 * `tvdbid` - TVDB ID for this anime or None if not available.
-* `tmdbid` - TMDB ID for this anime or None if not available.
-* `imdbid` - IMDB ID for this anime or None if not available.
+* `tmdbid` - TMDB ID for this anime or None if not available. Can be a list if this Anime maps to multiple movies, use the tmdbid attribute on the Episode object to get the tmdbid for a specific episode.
+* `imdbid` - IMDB ID for this anime or None if not available. Can be a list if thie Anime maps to multiple movies, use the imdbid attribute on the Episode object to get the imdbid for a specific episode.
 * `relations` - A list of tuples containing relations to this anime. The first entry in the tuple is a string describing the relation type and the second is an Anime-object for the related anime.
-* `fanart` - if [enabled](#fanart) it will return a dict directly translated from the json returned from the [fanart.tv API](https://fanarttv.docs.apiary.io/). Returns an empty dict if not enabled.
+* `fanart` - if [enabled](#fanart) it will return a list of dicts directly translated from the json returned from the [fanart.tv API](https://fanarttv.docs.apiary.io/). Returns an empty list if not enabled.
 
 The following attributes as returned from the AniDB API
 * `year`
@@ -130,6 +130,8 @@ or an Anime object. epno should be either a string or int representing the episo
 * `episode_number` - The episode number (note that this is a string)
 * `updated` - datetime when information about this episode was last fetched from AniDB
 * `tvdb_episode` - A tuple containing `(season, episode)` if this episode can be mapped to a TVDB episode. Note that `episode` is usualy a string containing the episode number, but can also be a tuple with (episode_number, partnumber) or a string containing episode numbers separated by '+' if the anidb episode is mapped to part of a TVDB episode or vice versa.
+* `tmdbid` - TMDB ID for this episode or None if not available.
+* `imdbid` - IMDB ID for this episode or None if not available.
 
 The following attributes as returned from the AniDB API
 * `length`
@@ -236,7 +238,7 @@ The [Anime object](#anime-object) contains an attribute called `fanart` that can
   * you must provide an [API key](https://fanart.tv/get-an-api-key/) either in the `init()`-call using the keyword `fanart_api_key` or by providing it in an [.netrc-file](#netrc).
   * The series/movie must be properly mapped to a tvdb/tmdb/imdb-ID in [Anime-Lists](https://github.com/Anime-Lists/anime-lists)
 
-The `fanart` attribute just returns the metadata from the fanart.tv api; but the `adbb.download_fanart()`-method can be used to download the actual fanart. This example downloads the first background fanart the api returned.
+The `fanart` attribute just returns a list of metadata from the fanart.tv api; but the `adbb.download_fanart()`-method can be used to download the actual fanart. This example downloads the first background fanart the api returned.
 The attribute is directly translated from the json API, so for structure description you should check the [fanart.tv API reference](https://fanarttv.docs.apiary.io/). Note that it differs slightly between series and movies.
 ```python
 import adbb
@@ -248,7 +250,7 @@ adbb.init('sqlite:///.adbb.db', netrc_file='.netrc', fanart_api_key=api_key)
 anime = adbb.Anime("Kemono no Souja Erin")
 
 fanart = anime.fanart
-background_url = fanart["showbackground"][0]["url"]
+background_url = fanart[0]["showbackground"][0]["url"]
 with open("background.jpg", "w") as f:
     # There is also a "preview" keyword-argument that can be set to "true" to download a low-resolution preview image
     adbb.download_fanart(f, url)

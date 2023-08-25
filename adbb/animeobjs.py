@@ -325,29 +325,55 @@ class Anime(AniDBObj):
     @property
     def fanart(self):
         if not adbb.fanart_key:
-            return {}
-        movie_id = [x for x in [self.tmdbid, self.imdbid] if x]
-        tv_id = self.tvdbid
+            return []
+        ret = []
         headers = {
                 'api-key': adbb.fanart_key,
                 'content-type': 'application/json'
                 }
         base_url = 'https://webservice.fanart.tv/'
-        if movie_id:
-            url = urllib.parse.urljoin(base_url, f'/v3/movies/{movie_id[0]}')
-        elif tv_id:
+
+        tv_id = self.tvdbid
+        movie_ids = [x for x in [self.tmdbid, self.imdbid] if x]
+        if movie_ids:
+            all_ids = []
+            for i in movie_ids:
+                if type(i) == str:
+                    all_ids.append(i)
+                elif type(i) == list:
+                    all_ids.extend(i)
+            movie_ids = all_ids
+
+        if movie_ids:
+            for i in movie_ids:
+                url = urllib.parse.urljoin(base_url, f'/v3/movies/{i}')
+                req = urllib.request.Request(url, headers=headers)
+                try:
+                    with urllib.request.urlopen(req) as f:
+                        res = json.loads(f.read())
+                except urllib.error.HTTPError as e:
+                    if e.code != 404:
+                        adbb.log.error(f'Failed to fetch fanart for movie ID {i}: {e}')
+                        return []
+                    res = None
+                if res:
+                    ret.append(res)
+        if tv_id:
             url = urllib.parse.urljoin(base_url, f'/v3/tv/{tv_id}')
+            req = urllib.request.Request(url, headers=headers)
+            try:
+                with urllib.request.urlopen(req) as f:
+                    res = json.loads(f.read())
+            except urllib.error.HTTPError as e:
+                if e.code != 404:
+                    adbb.log.error(f'Failed to fetch fanart for {self}: {e}')
+                    return []
+                res = None
+            if res:
+                ret.append(res)
         else:
-            return {}
-        req = urllib.request.Request(url, headers=headers)
-        try:
-            with urllib.request.urlopen(req) as f:
-                res = json.loads(f.read())
-        except urllib.error.HTTPError as e:
-            if e.code != 404:
-                adbb.log.error(f'Failed to fetch fanart for {self}: {e}')
-            return {}
-        return res
+            return []
+        return ret
 
 
     def __eq__(self, other):
@@ -407,6 +433,37 @@ class Episode(AniDBObj):
                 else:
                     res = (season, (epno, my_ep-1))
         return res
+
+    def _get_mdbid(self, ids):
+        if not ids:
+            return None
+        mdbid = None
+        anime = self.anime
+        if type(ids) == str:
+            ids = [ids]
+        if len(ids) == anime.nr_of_episodes:
+            # Sometimes anidb adds parts of a movie as episodes > 1, so
+            # episode_number can be > 1 even if nr_of_episodes == 1.
+            # We're only interested in the first ID in that case.
+            if anime.nr_of_episodes == 1:
+                return ids[0]
+            try:
+                mdbid = ids[int(self.episode_number)-1]
+                if not int(mdbid.strip('t')):
+                    return None
+            except ValueError:
+                return None
+        return mdbid
+
+    @property
+    def tmdbid(self):
+        ids = self.anime.tmdbid
+        return self._get_mdbid(ids)
+
+    @property
+    def imdbid(self):
+        ids = self.anime.imdbid
+        return self._get_mdbid(ids)
 
     @property
     def in_mylist(self):

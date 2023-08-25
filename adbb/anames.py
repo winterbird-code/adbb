@@ -311,12 +311,16 @@ def get_tvdbid(aid):
 def get_tmdbid(aid):
     maps = anilist_maps(aid)
     if 'tmdbid' in maps and maps['tmdbid'] not in ['', 'unknown']:
+        if ',' in maps['tmdbid']:
+            return maps['tmdbid'].split(',')
         return maps['tmdbid']
     return None
 
 def get_imdbid(aid):
     maps = anilist_maps(aid)
     if 'imdbid' in maps and maps['imdbid'] not in ['', 'unknown']:
+        if ',' in maps['imdbid']:
+            return maps['imdbid'].split(',')
         return maps['imdbid']
     return None
 

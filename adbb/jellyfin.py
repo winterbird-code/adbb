@@ -135,8 +135,10 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     etree.write(f, encoding='unicode', xml_declaration=False)
                     f.write('\n')
 
-    elif type(obj) == adbb.Anime:
-        if obj.nr_of_episodes == 1:
+    elif type(obj) == adbb.Episode:
+        movie = any([obj.tmdbid, obj.imdbid])
+        anime = obj.anime
+        if movie:
             rootname = 'movie'
         else:
             rootname = 'tvshow'
@@ -144,22 +146,44 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
         with open(tmpfile, 'w', encoding='utf-8') as f:
             f.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
             root = ET.Element(rootname)
+            orig_title = [x.title for x in anime.titles if x.lang == 'jpn' and x.titletype == 'official']
+            if orig_title:
+                orig_title = orig_title[0]
+
             e = ET.SubElement(root, 'name')
-            e.text = obj.title
-            orig_title = [x.title for x in obj.titles if x.lang == 'jpn' and x.titletype == 'official']
+            if anime.nr_of_episodes == 1:
+                e.text = anime.title
+            else:
+                if orig_title and obj.title_kanji:
+                    orig_title = f'{orig_title} - {obj.title_kanji}'
+                else:
+                    orig_title = f'{orig_title} - {obj.episode_number}'
+
+                if obj.title_romaji:
+                    e.text = f'{anime.title} - {obj.title_romaji}'
+                elif obj.title_kanji:
+                    e.text = f'{anime.title} - {obj.title_kanji}'
+                else:
+                    e.text = f'{anime.title} - {obj.title_eng}'
             if orig_title:
                 e = ET.SubElement(root, 'originaltitle')
-                e.text = orig_title[0]
-            if obj.air_date:
+                e.text = orig_title
+            if movie and obj.aired:
                 e = ET.SubElement(root, 'year')
-                e.text = obj.air_date.strftime('%Y')
+                e.text = obj.aired.strftime('%Y')
                 e = ET.SubElement(root, 'aired')
-                e.text = obj.air_date.strftime('%Y-%m-%d')
+                e.text = obj.aired.strftime('%Y-%m-%d')
+            elif anime.air_date:
+                e = ET.SubElement(root, 'year')
+                e.text = anime.air_date.strftime('%Y')
+                e = ET.SubElement(root, 'aired')
+                e.text = anime.air_date.strftime('%Y-%m-%d')
             if obj.rating:
                 e = ET.SubElement(root, 'rating')
                 e.text = str(obj.rating)
-            e = ET.SubElement(root, 'uniqueid', attrib={'type': 'anidb', 'default': 'true' })
-            e.text = str(obj.aid)
+            if not (movie and anime.nr_of_episodes > 1):
+                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'anidb', 'default': 'true' })
+                e.text = str(obj.aid)
             if obj.tmdbid:
                 e = ET.SubElement(root, 'uniqueid', attrib={'type': 'tmdb'})
                 e.text = obj.tmdbid
@@ -178,33 +202,40 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
         art_dir = os.path.split(nfo_path)[0]
         if fetch_fanart:
             all_arts = { k: [] for k in JELLYFIN_ART_TYPES }
-            arts = obj.fanart
-            for key, value in arts.items():
-                if key in FANART_MAP:
-                    art_type = FANART_MAP[key]
-                    urls = [x['url'] for x in value]
-                    all_arts[art_type].extend(urls)
-        for art_type, urls in all_arts.items():
-            items = 1
-            if art_type == 'backdrop':
-                items = 5
-            random.shuffle(urls)
-            chosen = urls[:items]
-            for item, url in enumerate(chosen, start=1):
-                ext = url.rsplit('.', 1)[-1]
-                if item > 1:
-                    fname = f'{art_type}{item}.{ext}'
-                else:
-                    fname = f'{art_type}.{ext}'
-                tmpart = os.path.join(art_dir, f'.{fname}.tmp')
-                try:
-                    with open(tmpart, 'wb') as f:
-                        adbb.download_fanart(f, url)
-                except urllib.error.HTTPError as e:
-                    adbb.log.error('Failed to download fanart at {url}: {e}')
-                    os.remove(tmpart)
-                    continue
-                os.rename(tmpart, os.path.join(art_dir, fname))
+            if movie:
+                arts = [x for x in anime.fanart if \
+                        (obj.tmdbid and 'tmdb_id' in x and x['tmdb_id'] == obj.tmdbid) or \
+                        (obj.imdbid and 'imdb_id' in x and x['imdb_id'] == obj.imdbid)]
+            else:
+                arts = [x for x in anime.fanart if \
+                        (obj.tvdbid and 'thetvdb_id' in x and x['thetvdb_id'] == obj.tvdbid)]
+            for entry in arts:
+                for key, value in entry.items():
+                    if key in FANART_MAP:
+                        art_type = FANART_MAP[key]
+                        urls = [x['url'] for x in value]
+                        all_arts[art_type].extend(urls)
+            for art_type, urls in all_arts.items():
+                items = 1
+                if art_type == 'backdrop':
+                    items = 5
+                random.shuffle(urls)
+                chosen = urls[:items]
+                for item, url in enumerate(chosen, start=1):
+                    ext = url.rsplit('.', 1)[-1]
+                    if item > 1:
+                        fname = f'{art_type}{item}.{ext}'
+                    else:
+                        fname = f'{art_type}.{ext}'
+                    tmpart = os.path.join(art_dir, f'.{fname}.tmp')
+                    try:
+                        with open(tmpart, 'wb') as f:
+                            adbb.download_fanart(f, url)
+                    except urllib.error.HTTPError as e:
+                        adbb.log.error('Failed to download fanart at {url}: {e}')
+                        os.remove(tmpart)
+                        continue
+                    os.rename(tmpart, os.path.join(art_dir, fname))
 
     os.rename(tmpfile, nfo_path)
 
@@ -239,12 +270,12 @@ def create_anime_collection(
     # Fanart
     all_arts = { k: [] for k in JELLYFIN_ART_TYPES }
     for anime in relations:
-        arts = anime.fanart
-        for key, value in arts.items():
-            if key in FANART_MAP:
-                art_type = FANART_MAP[key]
-                urls = [x['url'] for x in value]
-                all_arts[art_type].extend(urls)
+        for arts in anime.fanart:
+            for key, value in arts.items():
+                if key in FANART_MAP:
+                    art_type = FANART_MAP[key]
+                    urls = [x['url'] for x in value]
+                    all_arts[art_type].extend(urls)
     for art_type, urls in all_arts.items():
         items = 1
         if art_type == 'backdrop':
@@ -282,9 +313,17 @@ def create_anime_collection(
     for a in relations:
         directories = []
         if a.tmdbid:
-            directories.extend([os.path.join(x, f'adbb [tmdbid-{a.tmdbid}]') for x in paths])
+            if type(a.tmdbid) == list:
+                for i in a.tmdbid:
+                    directories.extend([os.path.join(x, f'adbb [tmdbid-{i}]') for x in paths])
+            else:
+                directories.extend([os.path.join(x, f'adbb [tmdbid-{a.tmdbid}]') for x in paths])
         if a.imdbid:
-            directories.extend([os.path.join(x, f'adbb [imdbid-{a.imdbid}]') for x in paths])
+            if type(a.imdbid) == list:
+                for i in a.imdbid:
+                    directories.extend([os.path.join(x, f'adbb [imdbid-{i}]') for x in paths])
+            else:
+                directories.extend([os.path.join(x, f'adbb [imdbid-{a.imdbid}]') for x in paths])
         if a.tvdbid:
             directories.extend([os.path.join(x, f'adbb [tvdbid-{a.tvdbid}]') for x in paths])
         directories.extend([os.path.join(x, a.title.replace('/', '⁄').lstrip('.')) for x in paths])
@@ -476,20 +515,27 @@ def jellyfin_anime_sync():
         pdir = os.path.split(d)[-1]
         if pdir in JELLYFIN_SPECIAL_DIRS:
             return
-        season, epno = adbb_file.episode.tvdb_episode
+
         anime = adbb_file.anime
+        episode = adbb_file.episode
+        tmdbid = episode.tmdbid
+        imdbid = episode.imdbid
+        movie = any([tmdbid, imdbid])
+
         aname = anime.title.replace('/', '⁄').lstrip('.')
         ext = path.rsplit('.', 1)[-1]
+        season, epno = episode.tvdb_episode
 
         if season == 's':
             season = '0'
 
-        if adbb_file.anime.nr_of_episodes == 1 and adbb_file.part:
+        if movie and adbb_file.part:
             partstr = f'-part{adbb_file.part}'
         else:
             partstr = ""
 
         if args.anidb_library:
+            # For anidb scraper 1 episode == movie
             if adbb_file.anime.nr_of_episodes == 1:
                 exclusive_dir = os.path.join(args.anidb_library, 'Movies', aname)
             else:
@@ -503,20 +549,20 @@ def jellyfin_anime_sync():
             if adbb.anames.tvdbid_has_absolute_order(anime.tvdbid):
                 epno = None
 
-        if anime.nr_of_episodes == 1 and anime.tmdbid and args.moviedb_library:
-            d = os.path.join(args.moviedb_library, f'adbb [tmdbid-{anime.tmdbid}]')
+        if tmdbid and args.moviedb_library:
+            d = os.path.join(args.moviedb_library, f'adbb [tmdbid-{tmdbid}]')
             linkname = os.path.basename(path)
             link = os.path.join(d, linkname)
             adbb.utils.link_to_directory(path, link, exclusive_dir=exclusive_dir, dry_run=args.dry_run)
             if args.write_nfo:
-                write_nfo(anime, os.path.join(d, 'movie.nfo'), dry_run=args.dry_run)
-        elif anime.nr_of_episodes == 1 and anime.imdbid and args.moviedb_library:
-            d = os.path.join(args.moviedb_library, f'adbb [imdbid-{anime.imdbid}]')
+                write_nfo(episode, os.path.join(d, 'movie.nfo'), dry_run=args.dry_run)
+        elif imdbid and args.moviedb_library:
+            d = os.path.join(args.moviedb_library, f'adbb [imdbid-{imdbid}]')
             linkname = os.path.basename(path)
             link = os.path.join(d, linkname)
             adbb.utils.link_to_directory(path, link, exclusive_dir=exclusive_dir, dry_run=args.dry_run)
             if args.write_nfo:
-                write_nfo(anime, os.path.join(d, 'movie.nfo'), dry_run=args.dry_run)
+                write_nfo(episode, os.path.join(d, 'movie.nfo'), dry_run=args.dry_run)
         elif anime.tvdbid and args.tvdb_library and epno:
             if type(epno) is tuple:
                 partstr = f'-part{epno[1]}'
@@ -526,9 +572,9 @@ def jellyfin_anime_sync():
             d = os.path.join(args.tvdb_library, f'adbb [tvdbid-{anime.tvdbid}]')
             if type(epno) is list:
                 if epno[0] == '1' and args.write_nfo and season in ['1', 'a']:
-                    write_nfo(anime, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
+                    write_nfo(episode, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
             elif epno == '1' and args.write_nfo and season in ['1', 'a']:
-                write_nfo(anime, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
+                write_nfo(episode, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
 
             epnos = adbb_file.multiep
             if epnos[0] != epnos[-1]:
