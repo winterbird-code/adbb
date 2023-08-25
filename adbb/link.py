@@ -351,6 +351,7 @@ class AniDBListener(threading.Thread):
                     if all([x.command == 'LOGOUT' for x in self.cmd_queue.values()]):
                         self.stop()
                     else:
+                        adbb.log.warning('Lost encrypted session with AniDB; attempting to reauthenticate')
                         self._sender.reauthenticate()
                 else:
                     adbb.log.critical(f'Unhandled response from API: {repr(data)}')
@@ -364,6 +365,7 @@ class AniDBListener(threading.Thread):
                 if cmd.command == 'LOGOUT':
                     self.stop()
                 else:
+                    adbb.log.warning('Lost session with AniDB; attempting to reauthenticate')
                     self._sender.reauthenticate()
                     self._sender.request(cmd, cmd.callback, prio=True)
                 continue
