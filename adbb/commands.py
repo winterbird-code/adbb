@@ -89,6 +89,9 @@ class AuthCommand(Command):
                       'clientver': clientver, 'nat': nat, 'comp': comp, 'enc': enc, 'mtu': mtu}
         Command.__init__(self, 'AUTH', **parameters)
 
+    def handle_timeout(self, link):
+        link.set_banned(code=604, reason=b'API not responding')
+        link.request(self, self.callback, prio=True)
 
 class LogoutCommand(Command):
     def __init__(self):
@@ -347,6 +350,10 @@ class EncryptCommand(Command):
         self.apipassword = apipassword
         parameters = {'user': user.lower(), 'type': type}
         Command.__init__(self, 'ENCRYPT', **parameters)
+
+    def handle_timeout(self, link):
+        link.set_banned(code=604, reason=b'API not responding')
+        link.request(self, self.callback, prio=True)
 
 
 class EncodingCommand(Command):
