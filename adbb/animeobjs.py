@@ -371,8 +371,6 @@ class Anime(AniDBObj):
                 res = None
             if res:
                 ret.append(res)
-        else:
-            return []
         return ret
 
 
