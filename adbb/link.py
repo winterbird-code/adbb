@@ -180,6 +180,9 @@ class AniDBLink(threading.Thread):
 
     def _send_command(self, command):
         self._do_delay()
+        if not self._listener.is_alive():
+            adbb.log.error('Listener has died; aborting')
+            raise AniDBInternalError('Listener has died')
         if not self._session and command.command not in ('AUTH', 'PING', 'ENCRYPT'):
             raise AniDBMustAuthError("You must be authed to execute command {}".format(command.command))
         if command.command == 'AUTH' and self._authed.is_set():
