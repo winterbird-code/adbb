@@ -748,16 +748,15 @@ def jellyfin_anime_sync():
                     continue
                 for root, dirs, files in os.walk(path):
                     dirs[:] = [x for x in dirs if x.startswith('adbb [')]
-                    if files:
-                        adbb.utils.remove_dir_if_empty(root)
-                        for link in files:
-                            lp = os.path.join(root, link)
-                            if os.path.islink(lp):
-                                target = os.readlink(lp)
-                                if not target in links:
-                                    links[target] = [lp]
-                                else:
-                                    links[target].append(lp)
+                    adbb.utils.remove_dir_if_empty(root)
+                    for link in files:
+                        lp = os.path.join(root, link)
+                        if os.path.islink(lp):
+                            target = os.readlink(lp)
+                            if not target in links:
+                                links[target] = [lp]
+                            else:
+                                links[target].append(lp)
             if args.anidb_library:
                 for root, dirs, files in os.walk(args.anidb_library):
                     dirs[:] = [d for d in dirs if d.lower() not in JELLYFIN_SPECIAL_DIRS]
