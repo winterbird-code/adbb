@@ -160,7 +160,7 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                 orig_title = orig_title[0]
 
             e = ET.SubElement(root, 'name')
-            if anime.nr_of_episodes == 1:
+            if not movie or anime.nr_of_episodes == 1:
                 e.text = anime.title
             else:
                 if orig_title and obj.title_kanji:
