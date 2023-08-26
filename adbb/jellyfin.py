@@ -538,7 +538,7 @@ def jellyfin_anime_sync():
         if season == 's':
             season = '0'
 
-        if movie and adbb_file.part:
+        if (movie or anime.nr_of_episodes == 1) and adbb_file.part:
             partstr = f'-part{adbb_file.part}'
         else:
             partstr = ""
