@@ -64,7 +64,7 @@ FANART_MAP = {
         'seasonthumb': 'thumb',
         'hdclearart': 'clearart',
         'tvbanner': 'banner',
-        'characterart': 'clearart',
+        #'characterart': 'clearart',
         'tvposter': 'poster',
         'seasonbanner': 'banner',
         }
