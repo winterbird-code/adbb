@@ -59,8 +59,8 @@ class AniDBObj(object):
         thread.start()
         if block:
             thread.join()
-        if self._illegal_object:
-            raise IllegalAnimeObject("{} is not a valid AniDB object".format(self))
+            if self._illegal_object:
+                raise IllegalAnimeObject("{} is not a valid AniDB object".format(self))
 
     def update(self, block=False):
         locked = self._updating.acquire(False)
@@ -143,6 +143,13 @@ class AniDBObj(object):
                 adbb.log.warning("Failed to update db: {}".format(e))
             session.rollback()
 
+    def __getattribute__(self, attr):
+        if attr in ['_updated', '_updating', '_anidb_link']:
+            return super(AniDBObj, self).__getattribute__(attr)
+        if super(AniDBObj, self).__getattribute__('_illegal_object'):
+            raise IllegalAnimeObject("{} is not a valid AniDB object".format(self))
+        return super(AniDBObj, self).__getattribute__(attr)
+
     def __getattr__(self, name):
         local_vars = vars(self)
         if name not in ('updated', 'relations'):
@@ -152,16 +159,10 @@ class AniDBObj(object):
             if local_name in local_vars and local_vars[local_name]:
                 return local_vars[local_name]
 
-        self._updating.acquire()
-        self._updating.release()
-        self.update_if_old()
-        # No, I have no idea what I'm doing here...
-        if name == 'relations':
-            relations = self.relations
-            if isinstance(relations, list):
-                return relations
-            return relations()
-        return getattr(self.db_data, name, None)
+        super(AniDBObj, self).__getattribute__('_updating').acquire()
+        super(AniDBObj, self).__getattribute__('_updating').release()
+        super(AniDBObj, self).__getattribute__('update_if_old')()
+        return getattr(super(AniDBObj, self).__getattribute__('db_data'), name, None)
 
 
 class Anime(AniDBObj):
@@ -386,8 +387,8 @@ class Anime(AniDBObj):
 
     def __repr__(self):
         return "Anime(title='{}', aid={})".format(
-            self.title,
-            self.aid)
+            super(AniDBObj, self).__getattribute__('_title'),
+            super(AniDBObj, self).__getattribute__('_aid'))
 
 
 class AnimeTitle:
@@ -591,7 +592,10 @@ class Episode(AniDBObj):
 
     def __repr__(self):
         return "Episode(anime={}, episode_number='{}', eid={})".format(
-            self._anime, self._episode_number, self._eid)
+            super(AniDBObj, self).__getattribute__('_anime'),
+            super(AniDBObj, self).__getattribute__('_episode_number'),
+            super(AniDBObj, self).__getattribute__('_eid')
+            )
 
 
 class File(AniDBObj):
@@ -1085,19 +1089,21 @@ class File(AniDBObj):
         self._updating.release()
 
     def __repr__(self):
-        if self.db_data:
-            watched = self.db_data.mylist_viewdate
+        db_data = super(AniDBObj, self).__getattribute__('db_data')
+        path = super(AniDBObj, self).__getattribute__('_path')
+        if db_data:
+            watched = db_data.mylist_viewdate
         else:
             watched = None
-        if self._path:
-            filename = os.path.basename(self._path)
+        if path:
+            filename = os.path.basename(path)
         else:
             filename = None
         return "File(filename='{}', episode={}, generic={}, watched={})". \
             format(
                 filename,
-                self._episode,
-                self._is_generic,
+                super(AniDBObj, self).__getattribute__('_episode'),
+                super(AniDBObj, self).__getattribute__('_is_generic'),
                 watched
                 )
 
@@ -1558,5 +1564,5 @@ class Group(AniDBObj):
     def __repr__(self):
         return "Group(gid='{}', name='{}')". \
             format(
-                self._gid,
-                self._name)
+                super(AniDBObj, self).__getattribute__('_gid'),
+                super(AniDBObj, self).__getattribute__('_name'))
