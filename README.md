@@ -251,10 +251,10 @@ anime = adbb.Anime("Kemono no Souja Erin")
 
 fanart = anime.fanart
 background_url = fanart[0]["showbackground"][0]["url"]
-with open("background.jpg", "w") as f:
+with open("background.jpg", "wb") as f:
     # The "preview" keyword-argument is False by default, but can be
     # set to "true" to download a low-resolution preview image
-    adbb.download_fanart(f, url, preview=False)
+    adbb.download_fanart(f, background_url, preview=False)
 
 adbb.close()
 ```
