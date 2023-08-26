@@ -59,6 +59,9 @@ When trying out this tool for the first time, make sure to read these instructio
      You can also use `--debug` to get *very* verbose information about what's going on.
   5. If you decide to use this tool for managing the jellyfin libraries, make sure to use the `--no-watched` flag until the jellyfin libraries has been populated and you've updated watched status in jellyfin.
 
+### Aborting
+If you want to stop jellyfin_anime_sync it is safe to use CTRL+C or kill (with SIGTERM); the signal handler will properly log out from the API and exit.
+
 ### Example usage - Managing libraries
 ```
 jellyfin_anime_sync \
