@@ -84,10 +84,11 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
         return
     if type(obj) == adbb.File:
         eps = obj.multiep
+        anime = obj.anime
         with open(tmpfile, 'w', encoding='utf-8') as f:
             f.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
             for ep in eps:
-                episode = adbb.Episode(anime=obj.anime, epno=ep)
+                episode = adbb.Episode(anime=anime, epno=ep)
                 season, tvdb_ep = episode.tvdb_episode
 
                 if season == 'a':
@@ -103,18 +104,26 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     tvdb_eps = [tvdb_ep]
                 for tep in tvdb_eps:
                     root = ET.Element('episodedetails')
-                    if episode.title_romaji:
+                    if anime.nr_of_episodes == 1:
+                        orig_title = [x.title for x in anime.titles if x.lang == 'jpn' and x.titletype == 'official']
+                        if orig_title:
+                            e = ET.SubElement(root, 'originaltitle')
+                            e.text = orig_title[0]
+                        elif episode.title_kanji:
+                            e = ET.SubElement(root, 'originaltitle')
+                            e.text = episode.title_kanji
                         e = ET.SubElement(root, 'name')
-                        e.text = episode.title_romaji
-                    elif episode.title_eng:
-                        e = ET.SubElement(root, 'name')
-                        e.text = episode.title_eng
+                        e.text = anime.title
                     else:
-                        e = ET.SubElement(root, 'name')
-                        e.text = episode.title_kanji
-                    if episode.title_kanji:
-                        e = ET.SubElement(root, 'originaltitle')
-                        e.text = episode.title_kanji
+                        if episode.title_romaji:
+                            e = ET.SubElement(root, 'name')
+                            e.text = episode.title_romaji
+                        elif episode.title_eng:
+                            e = ET.SubElement(root, 'name')
+                            e.text = episode.title_eng
+                        if episode.title_kanji:
+                            e = ET.SubElement(root, 'originaltitle')
+                            e.text = episode.title_kanji
                     if episode.aired:
                         e = ET.SubElement(root, 'year')
                         e.text = episode.aired.strftime('%Y')
