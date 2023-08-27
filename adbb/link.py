@@ -268,6 +268,7 @@ class AniDBListener(threading.Thread):
         self.sock = self._connect_socket(myport, self.timeout)
         self._sender = sender
         self._cipher = None
+        self._last_receive = time()
 
         self.cmd_queue = {}
 
@@ -356,6 +357,7 @@ class AniDBListener(threading.Thread):
                 else:
                     adbb.log.critical(f'Unhandled response from API: {repr(data)}')
                     sys.exit(2)
+                self._last_receive = time()
                 continue
             resp = resp.resolve(cmd)
             resp.parse()
@@ -368,10 +370,12 @@ class AniDBListener(threading.Thread):
                     adbb.log.warning('Lost session with AniDB; attempting to reauthenticate')
                     self._sender.reauthenticate()
                     self._sender.request(cmd, cmd.callback, prio=True)
+                self._last_receive = time()
                 continue
             elif resp.rescode in ('203', '500', '503'):
                 self.stop()
 
+            self._last_receive = time()
             resp_thread = threading.Thread(target=resp.handle)
             resp_thread.daemon = True
             resp_thread.start()
@@ -379,16 +383,21 @@ class AniDBListener(threading.Thread):
     def _handle_timeouts(self):
         willpop = []
         cmd = None
+        now = time()
         for tag, cmd in self.cmd_queue.items():
             if not tag:
                 continue
             if cmd.started:
                 adbb.log.debug("Command {} started at {} (now {})".format(
                         tag, cmd.started, time()))
-                if time() - cmd.started > self.timeout:
-                    adbb.log.warning("Command {} timed out".format(tag))
+                if now - cmd.started > self.timeout:
                     willpop.append(tag)
 
         for tag in willpop:
             cmd = self.cmd_queue.pop(tag)
-            cmd.handle_timeout(self._sender)
+            if cmd.started < self._last_receive:
+                # API isn't dead yet, probably reauthenticating
+                self._sender.request(cmd, cmd.callback, prio=True)
+            else:
+                adbb.log.warning("Command {} timed out".format(tag))
+                cmd.handle_timeout(self._sender)
