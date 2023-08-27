@@ -191,6 +191,11 @@ name=CLAMP
 # all of Meitantei Conan and Cat's Eye as well. 
 [Lupin Sansei]
 exclude=6432,17634
+
+# The include key is also allowed to include multiple dependency trees
+[377]
+name=Rumiko Takahashi Collection
+include=288,4576,817,144,847,10936
 ```
 
 ### nfo-creation

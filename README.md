@@ -297,7 +297,7 @@ You should probably run it with --dry-run first to make sure it behaves as expec
 
 ### jellyfin_anime_sync
 
-Tool to sync mylist watched status with jellyfin. Requires [jellyfin-apiclient-python](https://github.com/jellyfin/jellyfin-apiclient-python).
+Glueware for AniDB<->jellyfin integration. Requires [jellyfin-apiclient-python](https://github.com/jellyfin/jellyfin-apiclient-python).
 For more information, and usage, for this tool, see [JELLYFIN.md](JELLYFIN.md).
 
 ## Upgrading

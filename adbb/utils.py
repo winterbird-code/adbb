@@ -45,12 +45,16 @@ class InfoLogFilter(logging.Filter):
         return False
 
 def get_related_anime(anime, exclude=[], only_in_mylist=True):
-    relations = [x[1] for x in anime.relations if x[1] not in exclude and (not only_in_mylist or x[1].in_mylist)]
-    res = [anime]
-    for r in relations:
-        res.append(r)
-        r_relations = [x[1] for x in r.relations if x[1] not in relations + res + exclude and (not only_in_mylist or x[1].in_mylist)]
-        relations.extend(r_relations)
+    if type(anime) != list:
+        anime = [anime]
+
+    res = anime.copy()
+    for a in anime:
+        relations = [x[1] for x in a.relations if x[1] not in exclude and (not only_in_mylist or x[1].in_mylist)]
+        for r in relations:
+            res.append(r)
+            r_relations = [x[1] for x in r.relations if x[1] not in relations + res + exclude and (not only_in_mylist or x[1].in_mylist)]
+            relations.extend(r_relations)
 
     return res
 

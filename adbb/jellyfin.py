@@ -255,7 +255,8 @@ def create_anime_collection(
         tv_path=None,
         anidb_path=None,
         name=None,
-        exclude=[]):
+        exclude=[],
+        include=[]):
     if not name:
         name = anime.title
 
@@ -265,7 +266,10 @@ def create_anime_collection(
         stat = os.stat(collection_xml)
         if stat.st_mtime > anime.updated.timestamp():
             return
-    relations = adbb.utils.get_related_anime(anime, exclude=exclude)
+    if include:
+        relations = adbb.utils.get_related_anime([anime] + include, exclude=exclude)
+    else:
+        relations = adbb.utils.get_related_anime(anime, exclude=exclude)
     if len(relations) < 2:
         return
 
@@ -793,15 +797,21 @@ def jellyfin_anime_sync():
                         anime = collection
                     name = conf.get(collection, 'name', fallback=None)
                     exclude = conf.get(collection, 'exclude', fallback=[])
+                    include = conf.get(collection, 'include', fallback=[])
                     if exclude:
                         exclude = [adbb.Anime(int(x)) for x in exclude.split(',')]
+                    if include:
+                        include = [adbb.Anime(int(x)) for x in include.split(',')]
+                    else:
+                        include = None
                     create_anime_collection(adbb.Anime(anime),
                                             args.collection_path,
                                             movie_path=args.moviedb_library,
                                             tv_path=args.tvdb_library,
                                             anidb_path=args.anidb_library,
                                             name=name,
-                                            exclude=exclude)
+                                            exclude=exclude,
+                                            include=include)
 
             runtime = datetime.datetime.now()-starttime
             log.info(f"Completed sync in {str(runtime)}")
