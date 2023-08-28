@@ -587,9 +587,7 @@ def cache_cleaner():
         sess = adbb.get_session()
         for table in [AnimeTable, EpisodeTable, FileTable, GroupTable]:
             past = datetime.datetime.now()-datetime.timedelta(days=args.age)
-            res = sess.query(table).filter(
-                    table.last_update_dice.timestamp() < past.timestamp()
-                    ).all()
+            res = sess.query(table).filter(table.last_update_dice < past).all()
             for obj in res:
                 log.info(f'Remove {obj}; last access {obj.last_update_dice}')
                 if not args.dry_run:
@@ -617,10 +615,20 @@ def cache_cleaner():
 
     elif args.operation == 'group':
         sess = adbb.get_session()
+        gids = set()
+        names = set()
+        for i in args.ids:
+            try:
+                gid = int(i)
+                gids.add(gid)
+            except ValueError:
+                names.add(i)
+
         res = sess.query(GroupTable).filter(
-                GroupTable.gid.in_(args.ids).or_(
-                GroupTable.name.in_(args.ids).or_(
-                GroupTable.short.in_(args.ids)))).all()
+                sqlalchemy.or_(
+                    GroupTable.gid.in_(gids),
+                    GroupTable.name.in_(names),
+                    GroupTable.short.in_(names))).all()
         for obj in res:
             log.info(f'Remove {obj}')
             if not args.dry_run:
@@ -657,24 +665,30 @@ def cache_cleaner():
                     netrc_file=args.authfile,
                     api_key=args.api_key,
                     db_only=False)
-        files = []
+        files = set()
+        ids = set()
         for file in args.files:
             if os.path.exists(file):
                 ed2k = adbb.fileinfo.get_file_hash(file)
-                files.append(ed2k)
+                files.add(ed2k)
             else:
-                files.append(file)
+                try:
+                    i = int(file)
+                    ids.add(i)
+                except ValueError:
+                    files.add(file)
 
         sess = adbb.get_session()
         res = sess.query(FileTable).filter(
-                FileTable.path.in_(files).or_(
-                FileTable.ed2khash.in_(files).or_(
-                FileTable.lid.in_(files).or_(
-                FileTable.fid.in_(files)))))
+                sqlalchemy.or_(
+                    FileTable.path.in_(files),
+                    FileTable.ed2khash.in_(files),
+                    FileTable.lid.in_(ids),
+                    FileTable.fid.in_(ids))).all()
         if args.remove_from_mylist:
             for obj in res:
-                if lid:
-                    file = adbb.File(lid=lid)
+                if obj.lid:
+                    file = adbb.File(lid=obj.lid)
                     log.info(f'Remove {file} from mylist')
                     if not args.dry_run:
                         file.remove_from_mylist()
