@@ -91,7 +91,6 @@ class AuthCommand(Command):
 
     def handle_timeout(self, link):
         link.set_banned(code=604, reason=b'API not responding')
-        link.request(self, self.callback, prio=True)
 
 class LogoutCommand(Command):
     def __init__(self):
@@ -353,7 +352,6 @@ class EncryptCommand(Command):
 
     def handle_timeout(self, link):
         link.set_banned(code=604, reason=b'API not responding')
-        link.request(self, self.callback, prio=True)
 
 
 class EncodingCommand(Command):
