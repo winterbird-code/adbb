@@ -72,7 +72,7 @@ class AnimeTable(Base):
     updated = Column(DateTime(timezone=True), nullable=False)
     last_update_dice = Column(DateTime(timezone=True), nullable=False)
 
-    relations = relationship("AnimeRelationTable", backref='anime')
+    relations = relationship("AnimeRelationTable", backref='anime', cascade='all, delete')
 
     def update(self, **kwargs):
         for key, attr in kwargs.items():
@@ -263,7 +263,7 @@ class GroupTable(Base):
     last_release = Column(DateTime(timezone=False))
     last_activity = Column(DateTime(timezone=False))
 
-    relations = relationship("GroupRelationTable", backref='group')
+    relations = relationship("GroupRelationTable", backref='group', cascade='all, delete')
 
     updated = Column(DateTime(timezone=True), nullable=True)
     last_update_dice = Column(DateTime(timezone=True), nullable=False)
