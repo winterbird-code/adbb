@@ -52,7 +52,8 @@ def init(
         netrc_file=None,
         outgoing_udp_port=random.randrange(9000, 10000),
         api_key=None,
-        fanart_api_key=None):
+        fanart_api_key=None,
+        db_only=False):
 
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ def init(
         nrc = None
 
     # unless both username and password is given; look for credentials in netrc
-    if not (api_user and api_pass):
+    if not (api_user and api_pass) or db_only:
         if not nrc:
             raise Exception("User and passwords are required if no netrc file exists")
         for host in ['api.anidb.net', 'api.anidb.info', 'anidb.net']:
@@ -96,11 +97,12 @@ def init(
                     api_key = account
                 break
 
-    _anidb = adbb.link.AniDBLink(
-        api_user,
-        api_pass,
-        myport=outgoing_udp_port,
-        api_key=api_key)
+    if not db_only:
+        _anidb = adbb.link.AniDBLink(
+            api_user,
+            api_pass,
+            myport=outgoing_udp_port,
+            api_key=api_key)
 
     if nrc:
         # if no password is given in sql-url we try to look it up
@@ -163,4 +165,5 @@ def download_fanart(filehandle, url, preview=False):
 
 def close():
     global _anidb
-    _anidb.stop()
+    if _anidb:
+        _anidb.stop()

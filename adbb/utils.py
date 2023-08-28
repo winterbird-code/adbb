@@ -10,7 +10,9 @@ import time
 
 import adbb
 import adbb.anames
+import adbb.fileinfo
 from adbb.errors import *
+from adbb.db import *
 import sqlalchemy.exc
 
 status_msg=None
@@ -483,3 +485,217 @@ def signal_handler(signo, _stack_frame):
     adbb.log.info(f"Signal {signo} received, logging out and shutting down...")
     adbb.close()
     sys.exit(0)
+
+
+def get_cache_cleaner_args():
+    parser = argparse.ArgumentParser(description="Clean adbb database cache from old or unwanted entries")
+    parser.add_argument(
+            '-n', '--dry-run',
+            help="do not remove database entries",
+            action='store_true'
+            )
+    parser.add_argument(
+            '-d', '--debug',
+            help='show debug information from adbb',
+            action='store_true'
+            )
+    parser.add_argument(
+            '-u', '--username',
+            help='anidb username',
+            )
+    parser.add_argument(
+            '-p', '--password',
+            help='anidb password'
+            )
+    parser.add_argument(
+            '-s', '--sql-url',
+            help='sqlalchemy compatible sql URL',
+            default=f'sqlite:///{os.path.expanduser("~/.adbb.db")}'
+            )
+    parser.add_argument(
+            '-a', '--authfile',
+            help="Authfile (.netrc-file) for credentials"
+            )
+    parser.add_argument(
+            '-b', '--api-key',
+            help="Enable encryption using the given API key as defined in your AniDB profile",
+            default=None
+            )
+    subparsers=parser.add_subparsers(dest='operation', help='Type of cache cleaning')
+
+    parser_old=subparsers.add_parser('old', help='Remove old stuff that has not been accessed in a long time')
+    parser_old.add_argument(
+            '-g', '--age',
+            help='How old the entry must be, in days',
+            type=int,
+            default=90)
+
+    parser_anime=subparsers.add_parser('anime', help='Remove anime entries')
+    parser_anime.add_argument(
+            'ids',
+            help='Names or IDs of Anime to remove from cache',
+            nargs='+')
+
+    parser_group=subparsers.add_parser('group', help='Remove group entries')
+    parser_group.add_argument(
+            'ids',
+            help='Names or IDs of Group to remove from cache',
+            nargs='+')
+
+    parser_episode=subparsers.add_parser('episode', help='Remove episode entries')
+    parser_episode.add_argument(
+            '-a', '--anime',
+            help='Anime ID or title if removing by episode number',
+            default=None)
+    parser_episode.add_argument(
+            'ids',
+            help='Episode ID:s, or episode numbers if --anime-flag is used, to remove',
+            nargs='+')
+
+    parser_file=subparsers.add_parser('file', help='Remove file entries')
+    parser_file.add_argument(
+            '-m', '--remove-from-mylist',
+            action='store_true',
+            help='Remove files from mylist as well, requires UDP API credentials to be set')
+    parser_file.add_argument(
+            '-r', '--remove-files',
+            action='store_true',
+            help='Remove files from filesystem as well')
+    parser_file.add_argument(
+            "files",
+            help="File identifiers, can be any of (searched in order) 'path', 'ed2khash', 'lid' or 'fid'. First match is used",
+            nargs="*"
+            )
+
+    return parser.parse_args()
+
+def cache_cleaner():
+    args = get_cache_cleaner_args()
+
+    log = get_command_logger(debug=args.debug)
+    adbb.init(
+            args.sql_url,
+            api_user=args.username,
+            api_pass=args.password,
+            logger=log,
+            netrc_file=args.authfile,
+            api_key=args.api_key,
+            db_only=True)
+
+    if args['operation'] == 'old':
+        sess = adbb.get_session()
+        for table in [AnimeTable, EpisodeTable, FileTable, GroupTable]:
+            past = datetime.datetime.now()-datetime.timedelta(days=args['age'])
+            res = sess.query(table).filter(
+                    table.last_update_dice.timestamp() < past.timestamp()
+                    ).all()
+            for obj in res:
+                log.info(f'Remove {obj}; last access {obj.last_update_dice}')
+                if not args['dry_run']:
+                    sess.delete(obj)
+        sess.commit()
+        adbb.close_session(sess)
+
+    elif args['operation'] == 'anime':
+        aids = set()
+        for i in args['ids']:
+            try:
+                aids.update(int(i))
+            except ValueError:
+                aid, _titles, _score, _title = get_titles(name=i, max_results=1)[0]
+                aids.update(int(aid))
+
+        sess = adbb.get_session()
+        res = sess.query(AnimeTable).filter(AnimeTable.aid in aids).all()
+        for obj in res:
+            log.info(f'Remove {obj}')
+            if not args['dry_run']:
+                sess.delete(obj)
+        sess.commit()
+        adbb.close_session(sess)
+
+    elif args['operation'] == 'group':
+        sess = adbb.get_session()
+        res = sess.query(GroupTable).filter(
+                GroupTable.gid in args['ids'] or \
+                GroupTable.name in args['ids'] or \
+                GroupTable.short in args['ids']).all()
+        for obj in res:
+            log.info(f'Remove {obj}')
+            if not args['dry_run']:
+                sess.delete(obj)
+        sess.commit()
+        adbb.close_session(sess)
+
+    elif args['operation'] == 'episode':
+        sess = adbb.get_session()
+        if args['anime']:
+            try:
+                aid = int(args['anime'])
+            except ValueError:
+                aid, _titles, _score, _title = get_titles(name=i, max_results=1)[0]
+            res = sess.query(EpisodeTable).filter(EpisodeTable.aid == aid and EpisodeTable.epno in args['ids']).all()
+        else:
+            ids = [int(x) for x in args['ids']]
+            res = sess.query(EpisodeTable).filter(EpisodeTable.eid in ids).all()
+        for obj in res:
+            log.info(f'Remove {obj}')
+            if not args['dry_run']:
+                sess.delete(obj)
+        sess.commit()
+        adbb.close_session(sess)
+
+    elif args['operation'] == 'file':
+        if args['remove_from_mylist']:
+            adbb.close()
+            adbb.init(
+                    args.sql_url,
+                    api_user=args.username,
+                    api_pass=args.password,
+                    logger=log,
+                    netrc_file=args.authfile,
+                    api_key=args.api_key,
+                    db_only=False)
+        files = []
+        for file in args['files']:
+            if os.path.exists(file):
+                ed2k = adbb.fileinfo.get_file_hash(file)
+                files.append(ed2k)
+            else:
+                files.append(file)
+
+        sess = adbb.get_session()
+        res = sess.query(FileTable).filter(
+                FileTable.path in files,
+                FileTable.ed2khash in files,
+                FileTable.lid in files,
+                FileTable.fid in files)
+        if args['remove_from_mylist']:
+            for obj in res:
+                if lid:
+                    file = adbb.File(lid=lid)
+                    log.info(f'Remove {file} from mylist')
+                    if not args['dry_run']:
+                        file.remove_from_mylist()
+        if args['remove_files']:
+            for obj in res:
+                if obj.path and os.path.exists(obj.path):
+                    log.info(f'Remove file {obj.path}')
+                    if not args['dry_run']:
+                        os.remove(obj.path)
+            for path in args['files']:
+                if os.path.exists(path):
+                    log.info(f'Remove file {path}')
+                    if not args['dry_run']:
+                        os.remove(path)
+        for obj in res:
+            log.info(f'Remove {obj}')
+            if not args['dry_run']:
+                sess.delete(obj)
+        sess.commit()
+        adbb.close_session(sess)
+
+    adbb.close()
+
+if __name__ == '__main__':
+    cache_cleaner()
