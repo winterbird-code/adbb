@@ -582,71 +582,71 @@ def cache_cleaner():
             api_key=args.api_key,
             db_only=True)
 
-    if args['operation'] == 'old':
+    if args.operation == 'old':
         sess = adbb.get_session()
         for table in [AnimeTable, EpisodeTable, FileTable, GroupTable]:
-            past = datetime.datetime.now()-datetime.timedelta(days=args['age'])
+            past = datetime.datetime.now()-datetime.timedelta(days=args.age)
             res = sess.query(table).filter(
                     table.last_update_dice.timestamp() < past.timestamp()
                     ).all()
             for obj in res:
                 log.info(f'Remove {obj}; last access {obj.last_update_dice}')
-                if not args['dry_run']:
+                if not args.dry_run:
                     sess.delete(obj)
         sess.commit()
         adbb.close_session(sess)
 
-    elif args['operation'] == 'anime':
+    elif args.operation == 'anime':
         aids = set()
-        for i in args['ids']:
+        for i in args.ids:
             try:
-                aids.update(int(i))
+                aids.add(int(i))
             except ValueError:
                 aid, _titles, _score, _title = get_titles(name=i, max_results=1)[0]
-                aids.update(int(aid))
+                aids.add(int(aid))
 
         sess = adbb.get_session()
-        res = sess.query(AnimeTable).filter(AnimeTable.aid in aids).all()
+        res = sess.query(AnimeTable).filter(AnimeTable.aid.in_(aids)).all()
         for obj in res:
             log.info(f'Remove {obj}')
-            if not args['dry_run']:
+            if not args.dry_run:
                 sess.delete(obj)
         sess.commit()
         adbb.close_session(sess)
 
-    elif args['operation'] == 'group':
+    elif args.operation == 'group':
         sess = adbb.get_session()
         res = sess.query(GroupTable).filter(
-                GroupTable.gid in args['ids'] or \
-                GroupTable.name in args['ids'] or \
-                GroupTable.short in args['ids']).all()
+                GroupTable.gid.in_(args.ids).or_(
+                GroupTable.name.in_(args.ids).or_(
+                GroupTable.short.in_(args.ids)))).all()
         for obj in res:
             log.info(f'Remove {obj}')
-            if not args['dry_run']:
+            if not args.dry_run:
                 sess.delete(obj)
         sess.commit()
         adbb.close_session(sess)
 
-    elif args['operation'] == 'episode':
+    elif args.operation == 'episode':
         sess = adbb.get_session()
-        if args['anime']:
+        if args.anime:
             try:
-                aid = int(args['anime'])
+                aid = int(args.anime)
             except ValueError:
                 aid, _titles, _score, _title = get_titles(name=i, max_results=1)[0]
-            res = sess.query(EpisodeTable).filter(EpisodeTable.aid == aid and EpisodeTable.epno in args['ids']).all()
+            res = sess.query(EpisodeTable).filter(EpisodeTable.aid == aid, EpisodeTable.epno.in_(args.ids)).all()
         else:
-            ids = [int(x) for x in args['ids']]
-            res = sess.query(EpisodeTable).filter(EpisodeTable.eid in ids).all()
+            ids = [int(x) for x in args.ids]
+            res = sess.query(EpisodeTable).filter(EpisodeTable.eid.in_(ids)).all()
         for obj in res:
             log.info(f'Remove {obj}')
-            if not args['dry_run']:
+            if not args.dry_run:
                 sess.delete(obj)
         sess.commit()
         adbb.close_session(sess)
 
-    elif args['operation'] == 'file':
-        if args['remove_from_mylist']:
+    elif args.operation == 'file':
+        if args.remove_from_mylist:
             adbb.close()
             adbb.init(
                     args.sql_url,
@@ -657,7 +657,7 @@ def cache_cleaner():
                     api_key=args.api_key,
                     db_only=False)
         files = []
-        for file in args['files']:
+        for file in args.files:
             if os.path.exists(file):
                 ed2k = adbb.fileinfo.get_file_hash(file)
                 files.append(ed2k)
@@ -666,31 +666,31 @@ def cache_cleaner():
 
         sess = adbb.get_session()
         res = sess.query(FileTable).filter(
-                FileTable.path in files,
-                FileTable.ed2khash in files,
-                FileTable.lid in files,
-                FileTable.fid in files)
-        if args['remove_from_mylist']:
+                FileTable.path.in_(files).or_(
+                FileTable.ed2khash.in_(files).or_(
+                FileTable.lid.in_(files).or_(
+                FileTable.fid.in_(files)))))
+        if args.remove_from_mylist:
             for obj in res:
                 if lid:
                     file = adbb.File(lid=lid)
                     log.info(f'Remove {file} from mylist')
-                    if not args['dry_run']:
+                    if not args.dry_run:
                         file.remove_from_mylist()
-        if args['remove_files']:
+        if args.remove_files:
             for obj in res:
                 if obj.path and os.path.exists(obj.path):
                     log.info(f'Remove file {obj.path}')
-                    if not args['dry_run']:
+                    if not args.dry_run:
                         os.remove(obj.path)
-            for path in args['files']:
+            for path in args.files:
                 if os.path.exists(path):
                     log.info(f'Remove file {path}')
-                    if not args['dry_run']:
+                    if not args.dry_run:
                         os.remove(path)
         for obj in res:
             log.info(f'Remove {obj}')
-            if not args['dry_run']:
+            if not args.dry_run:
                 sess.delete(obj)
         sess.commit()
         adbb.close_session(sess)
