@@ -290,6 +290,13 @@ The library contains two command line utilities for mylist management. These are
 personal need, but is probably useful for other people as well. The source code could also be consulted for
 inspiration to make other tools. For usage, run the command with --help.
 
+### adbb_cache
+
+Tool to manage the cache database. At the moment it can only clean the database of unwanted/uneeded stuff, but perhaps importing data to the cache could be supported at some point..
+run `adbb_cache --help` and `adbb_cache <subcommand> --help` for usage. The most useful subcommands ar probably `old` to remove stuff that hasn't been touched in a while (90 days by default), and `file`
+which can be used to remove files from the database as well as (with the proper flags) from filesystem and mylist.
+This tool does not use the UDP API, except if it's asked to remove files from mylist.
+
 ### arrange_anime
 
 Tool to identify episode files and move/rename them for easy identification by for media centers.
