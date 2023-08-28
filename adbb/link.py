@@ -86,6 +86,9 @@ class AniDBLink(threading.Thread):
         self._send_auth()
 
     def _send_auth(self):
+        if self._api_key and not self._listener._cipher:
+            adbb.log.error('Tried to do unencrypted auth but API Key is set!')
+            return
         req = adbb.commands.AuthCommand(
                 self._user, 
                 self._pwd,
