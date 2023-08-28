@@ -819,7 +819,7 @@ def jellyfin_anime_sync():
             if not failures:
                 failures = 1
             else:
-                failures = max(failures*2, 120)
+                failures = min(failures*2, 120)
             adbb.log.warning(f"Network error, will retry in {failures} minutes: {e}")
             adbb.close()
             reinit_adbb=True
