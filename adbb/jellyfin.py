@@ -260,7 +260,7 @@ def create_anime_collection(
     if not name:
         name = anime.title
 
-    collection_dir = os.path.join(xml_path, name)
+    collection_dir = os.path.join(xml_path, name.replace('/', '⁄').lstrip('.'))
     collection_xml = os.path.join(collection_dir, 'collection.xml')
     if os.path.isfile(collection_xml):
         stat = os.stat(collection_xml)
