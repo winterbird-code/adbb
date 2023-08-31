@@ -247,14 +247,14 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     os.rename(tmpart, os.path.join(art_dir, fname))
             if not all_arts['poster']:
                 fname = 'poster.jpg'
-                tmpfile = os.path.join(art_dir, f'.{fname}.tmp')
+                tmpart = os.path.join(art_dir, f'.{fname}.tmp')
                 try:
-                    with open(tmpfile, 'wb') as f:
+                    with open(tmpart, 'wb') as f:
                         adbb.download_image(f, anime)
-                    os.rename(tmpfile, os.path.join(art_dir, fname))
+                    os.rename(tmpart, os.path.join(art_dir, fname))
                 except urllib.error.HTTPError as e:
                     adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
-                    os.remove(tmpfile)
+                    os.remove(tmpart)
 
     os.rename(tmpfile, nfo_path)
 
