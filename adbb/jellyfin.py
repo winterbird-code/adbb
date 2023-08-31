@@ -245,6 +245,16 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                         os.remove(tmpart)
                         continue
                     os.rename(tmpart, os.path.join(art_dir, fname))
+            if not all_arts['poster']:
+                fname = 'poster.jpg'
+                tmpfile = os.path.join(art_dir, f'.{fname}.tmp')
+                try:
+                    with open(tmpfile, 'wb') as f:
+                        adbb.download_image(f, anime)
+                    os.rename(tmpfile, os.path.join(art_dir, fname))
+                except urllib.error.HTTPError as e:
+                    adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
+                    os.remove(tmpfile)
 
     os.rename(tmpfile, nfo_path)
 
@@ -282,8 +292,8 @@ def create_anime_collection(
     os.makedirs(collection_dir, exist_ok=True)
     # Fanart
     all_arts = { k: [] for k in JELLYFIN_ART_TYPES }
-    for anime in relations:
-        for arts in anime.fanart:
+    for series in relations:
+        for arts in series.fanart:
             for key, value in arts.items():
                 if key in FANART_MAP:
                     art_type = FANART_MAP[key]
@@ -306,10 +316,20 @@ def create_anime_collection(
                 with open(tmpfile, 'wb') as f:
                     adbb.download_fanart(f, url)
             except urllib.error.HTTPError as e:
-                adbb.log.error('Failed to download fanart at {url}: {e}')
+                adbb.log.error(f'Failed to download fanart at {url}: {e}')
                 os.remove(tmpfile)
                 continue
             os.rename(tmpfile, os.path.join(collection_dir, fname))
+    if not all_arts['poster']:
+        fname = 'poster.jpg'
+        tmpfile = os.path.join(collection_dir, f'.{fname}.tmp')
+        try:
+            with open(tmpfile, 'wb') as f:
+                adbb.download_image(f, anime)
+            os.rename(tmpfile, os.path.join(collection_dir, fname))
+        except urllib.error.HTTPError as e:
+            adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
+            os.remove(tmpfile)
 
 
     # XML

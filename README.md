@@ -66,6 +66,12 @@ file = File(path="/media/Anime/Series/Kemono no Souja Erin/[winterbird] Kemono n
 # note that most of the time this will work even if we use a file that is not in the anidb database
 # will print "'<path>' contains episode 5 of 'Kemono no Souja Erin'. Mylist state is 'on hdd'"
 print("'{}' contains episode {} of '{}'. Mylist state is '{}'".format(file.path, file.episode.episode_number, file.anime.title, file.mylist_state))
+
+# adbb supports fetching posters. download_image() supports Anime and Group objects
+# (afaik, there are no other images to get from anidb)
+# For other images, check the fanart section below.
+with open('poster.jpg', 'wb') as f:
+    adbb.download_image(f, anime)
 ```
 
 ## Reference 

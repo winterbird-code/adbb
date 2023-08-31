@@ -148,6 +148,19 @@ def get_session():
 def close_session(session):
     session.close()
 
+def download_image(filehandle, obj):
+    if type(obj) not in (Anime, Group):
+        raise adbb.errors.AniDBMissingImage(f'Object type {type(obj)} does not support images')
+    if not obj.picname:
+        raise adbb.errors.AniDBMissingImage(f'{obj} does not have a picture defined')
+    url_base = 'https://cdn.anidb.net/images/main'
+    url=f'{url_base}/{obj.picname}'
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req) as f:
+        filehandle.write(f.read())
+
+
+
 def download_fanart(filehandle, url, preview=False):
     if not fanart_key:
         raise adbb.errors.FanartError('No fanart key available')
