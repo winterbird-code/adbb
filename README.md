@@ -326,5 +326,7 @@ I'll be restrictive about behavioural changes, and try to document them when the
 
 ## TODO:
 In no particular order:
-* add support for more anidb-commands (anime description would be nice...)
+* importing cache from anidb mylist exports.
+* add support for descriptions (The only(?) feature missing to create a full-featured media-center scraper).
+  Unfortunately, episode-descriptions are not supported by the UDP API.
 * any other feature request?
