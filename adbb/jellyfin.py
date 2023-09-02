@@ -367,7 +367,7 @@ def create_anime_collection(
                 if not files:
                     continue
                 if 'Movies' in root:
-                    for f in files:
+                    for f in [x for x in files if x.rsplit('.', 1)[-1].lower() in adbb.utils.SUPPORTED_FILETYPES]:
                         my_path = os.path.join(root, f)
                         if my_path in added_paths:
                             continue
