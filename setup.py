@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from os import environ
+from os import environ, path
 
 try:
     from setuptools import setup
@@ -9,13 +9,18 @@ except ImportError:
 import adbb
 
 version = float(adbb.anidb_client_version)/10
+readme = path.join(path.split(__file__)[0], 'README.md')
+with open(readme, 'r', encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
         name='adbb',
         version=str(version),
         description="Object Oriented AniDB UDP Client Library",
+        long_description_content_type="text/markdown",
+        long_description=long_description,
         author="Winterbird",
-        author_email="adbb<_at_>winterbird.org",
+        author_email="adbb@winterbird.org",
         url='https://github.com/winterbird-code/adbb',
         platforms=['any'],
         license= "GPLv3",
