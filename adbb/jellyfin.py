@@ -78,6 +78,8 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
         stat = os.stat(nfo_path)
         if stat.st_mtime > obj.updated.timestamp():
             return
+    dirname = os.path.split(nfo_path)[0]
+    os.makedirs(dirname, exist_ok=True)
 
     adbb.log.debug(f'Update nfo {nfo_path}')
     if dry_run:
