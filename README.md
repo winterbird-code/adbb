@@ -72,6 +72,9 @@ print("'{}' contains episode {} of '{}'. Mylist state is '{}'".format(file.path,
 # For other images, check the fanart section below.
 with open('poster.jpg', 'wb') as f:
     adbb.download_image(f, anime)
+
+# To log out from UDP api, make sure to run adbb.close() before exit
+adbb.close()
 ```
 
 ## Reference 
