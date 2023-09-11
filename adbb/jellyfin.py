@@ -242,8 +242,8 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     try:
                         with open(tmpart, 'wb') as f:
                             adbb.download_fanart(f, url)
-                    except urllib.error.HTTPError as e:
-                        adbb.log.error('Failed to download fanart at {url}: {e}')
+                    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+                        adbb.log.error(f'Failed to download fanart at {url}: {e}')
                         os.remove(tmpart)
                         continue
                     os.rename(tmpart, os.path.join(art_dir, fname))
@@ -254,7 +254,7 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     with open(tmpart, 'wb') as f:
                         adbb.download_image(f, anime)
                     os.rename(tmpart, os.path.join(art_dir, fname))
-                except urllib.error.HTTPError as e:
+                except (urllib.error.HTTPError, urllib.error.URLError) as e:
                     adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
                     os.remove(tmpart)
 
@@ -317,7 +317,7 @@ def create_anime_collection(
             try:
                 with open(tmpfile, 'wb') as f:
                     adbb.download_fanart(f, url)
-            except urllib.error.HTTPError as e:
+            except (urllib.error.HTTPError, urllib.error.URLError) as e:
                 adbb.log.error(f'Failed to download fanart at {url}: {e}')
                 os.remove(tmpfile)
                 continue

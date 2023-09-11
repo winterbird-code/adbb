@@ -363,6 +363,9 @@ class Anime(AniDBObj):
                         adbb.log.error(f'Failed to fetch fanart for movie ID {i}: {e}')
                         return []
                     res = None
+                except urllib.error.URLError as e:
+                    adbb.log.warning(f'Failed to fetch fanart for movie ID {i}: {e}')
+                    return []
                 if res:
                     ret.append(res)
         if tv_id:
@@ -376,6 +379,9 @@ class Anime(AniDBObj):
                     adbb.log.error(f'Failed to fetch fanart for {self}: {e}')
                     return []
                 res = None
+            except urllib.error.URLError as e:
+                adbb.log.warning(f'Failed to fetch fanart for {self}: {e}')
+                return []
             if res:
                 ret.append(res)
         return ret
