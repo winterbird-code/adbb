@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import http
 import netrc
 import os
 import random
@@ -242,7 +243,9 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     try:
                         with open(tmpart, 'wb') as f:
                             adbb.download_fanart(f, url)
-                    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+                    except (urllib.error.HTTPError,
+                            urllib.error.URLError,
+                            http.client.RemoteDisconnected) as e:
                         adbb.log.error(f'Failed to download fanart at {url}: {e}')
                         os.remove(tmpart)
                         continue
@@ -254,7 +257,9 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     with open(tmpart, 'wb') as f:
                         adbb.download_image(f, anime)
                     os.rename(tmpart, os.path.join(art_dir, fname))
-                except (urllib.error.HTTPError, urllib.error.URLError) as e:
+                except (urllib.error.HTTPError,
+                        urllib.error.URLError,
+                        http.client.RemoteDisconnected) as e:
                     adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
                     os.remove(tmpart)
 
@@ -317,7 +322,9 @@ def create_anime_collection(
             try:
                 with open(tmpfile, 'wb') as f:
                     adbb.download_fanart(f, url)
-            except (urllib.error.HTTPError, urllib.error.URLError) as e:
+            except (urllib.error.HTTPError,
+                    urllib.error.URLError,
+                    http.client.RemoteDisconnected) as e:
                 adbb.log.error(f'Failed to download fanart at {url}: {e}')
                 os.remove(tmpfile)
                 continue
@@ -329,7 +336,7 @@ def create_anime_collection(
             with open(tmpfile, 'wb') as f:
                 adbb.download_image(f, anime)
             os.rename(tmpfile, os.path.join(collection_dir, fname))
-        except urllib.error.HTTPError as e:
+        except (urllib.error.HTTPError, http.client.RemoteDisconnected) as e:
             adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
             os.remove(tmpfile)
 
