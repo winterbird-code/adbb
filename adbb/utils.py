@@ -321,23 +321,27 @@ def arrange_files(
         ):
     log = logging.getLogger(__name__)
     for f in filelist:
-        epfile = adbb.File(path=f)
-        if epfile.group:
-            # replace any / since it's not supported for filenames in *nix
-            group = epfile.group.name.replace('/', '⁄')
-        else:
-            # if anidb don't know about the group we try to parse the filename
-            # look for [] or ()-blocks at start or end of filename, and assume this
-            # is the groupname.
-            m = re.match(RE_GROUP_START, os.path.split(f)[-1])
-            if not m:
-                m = re.match(RE_GROUP_END, os.path.split(f)[-1])
-            if m:
-                # since we matched on filename previously there is no need to
-                # replace any chars here.
-                group = m.group(1)
+        try:
+            epfile = adbb.File(path=f)
+            if epfile.group:
+                # replace any / since it's not supported for filenames in *nix
+                group = epfile.group.name.replace('/', '⁄')
             else:
-                group = "unknown"
+                # if anidb don't know about the group we try to parse the filename
+                # look for [] or ()-blocks at start or end of filename, and assume this
+                # is the groupname.
+                m = re.match(RE_GROUP_START, os.path.split(f)[-1])
+                if not m:
+                    m = re.match(RE_GROUP_END, os.path.split(f)[-1])
+                if m:
+                    # since we matched on filename previously there is no need to
+                    # replace any chars here.
+                    group = m.group(1)
+                else:
+                    group = "unknown"
+        except IllegalAnimeObject:
+            log.error(f"Skipping file '{f}': unknown Anime/Episode")
+            continue
 
         # how many characters in an episode number? will probably return 1 (<10
         # episodes), 2 (<100 episodes), 3 (<1000 episodes) or 4 (hello Conan

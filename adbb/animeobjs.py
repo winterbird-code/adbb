@@ -869,9 +869,13 @@ class File(AniDBObj):
                     self._multiep = [e.episode_number for e in episodes]
                     self._anime = anime
                     self._episode = episodes[0]
-                finfo['aid'] = anime.aid
-                finfo['eid'] = episodes[0].eid
-                finfo['is_generic'] = self._is_generic
+                try:
+                    finfo['aid'] = anime.aid
+                    finfo['eid'] = episodes[0].eid
+                    finfo['is_generic'] = self._is_generic
+                except (IllegalAnimeObject, IndexError):
+                    self._illegal_object = True
+                    return
         else: 
             finfo = res.datalines[0]
             state = None
