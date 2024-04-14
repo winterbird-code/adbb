@@ -17,6 +17,7 @@ from adbb.db import *
 import sqlalchemy.exc
 
 status_msg=None
+ignorelist=set()
 
 # These extensions are considered video types
 SUPPORTED_FILETYPES = [
@@ -319,8 +320,9 @@ def arrange_files(
         disable_mylist=False,
         callback=None,
         ):
+    global ignorelist
     log = logging.getLogger(__name__)
-    for f in filelist:
+    for f in [i for i in filelist if not i in ignorelist]:
         try:
             epfile = adbb.File(path=f)
             if epfile.group:
@@ -340,7 +342,8 @@ def arrange_files(
                 else:
                     group = "unknown"
         except IllegalAnimeObject:
-            log.error(f"Skipping file '{f}': unknown Anime/Episode")
+            log.error(f"Ignoring file '{f}': unknown Anime/Episode")
+            ignorelist.add(f)
             continue
 
         # how many characters in an episode number? will probably return 1 (<10
