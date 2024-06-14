@@ -49,7 +49,7 @@ class InfoLogFilter(logging.Filter):
         return False
 
 def get_related_anime(anime, exclude=[], only_in_mylist=True):
-    logger = logger.getLogger(__name__)
+    logger = logging.getLogger(__name__)
     if type(anime) != list:
         anime = [anime]
 
