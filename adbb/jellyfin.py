@@ -30,7 +30,9 @@ JELLYFIN_SPECIAL_DIRS = [
         'featurettes',
         'extras',
         'trailers',
-        'misc'
+        # a few extra for good mesure
+        'misc',
+        'unsorted' 
         ]
 
 JELLYFIN_ART_TYPES = [
