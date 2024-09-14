@@ -587,12 +587,6 @@ def jellyfin_anime_sync():
         else:
             exclusive_dir = None
 
-        # Jellyfin can't handle specials in absolute order (yet?)
-        # https://github.com/jellyfin/jellyfin-plugin-tvdb/pull/92
-        if season and season not in ["1", "a"] and anime.tvdbid:
-            if adbb.anames.tvdbid_has_absolute_order(anime.tvdbid):
-                epno = None
-
         if tmdbid and args.moviedb_library:
             d = os.path.join(args.moviedb_library, f'adbb [tmdbid-{tmdbid}]')
             linkname = os.path.basename(path)
@@ -634,7 +628,7 @@ def jellyfin_anime_sync():
                     adbb.log.warning(f'No TVDB episode mapping for {last_ep}')
             elif type(epno) is list:
                 epno = f'{epno[0]}-{epno[-1]}'
-            if adbb.anames.tvdbid_has_absolute_order(anime.tvdbid):
+            if adbb.anames.tvdbid_has_absolute_order(anime.tvdbid) and season != '0':
                 linkname = f"{aname} - {epno}{partstr}.{ext}"
             else:
                 linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
