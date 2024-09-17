@@ -223,7 +223,7 @@ def fsop(source, target, link=False, dry_run=False, skip_clean=False, companion_
             stats = os.stat(path)
             os.utime(target_path, ns=(stats.st_atime_ns, stats.st_mtime_ns), follow_symlinks=False)
 
-    if not link:
+    if target_dir and not link:
         # Make sure extras-directories are moved if it's all that is
         # left in the old directory
         dirs = os.listdir(directory)
