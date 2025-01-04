@@ -38,6 +38,8 @@ EXTRAS_DIRS = [
 RE_GROUP_START = re.compile(r'^[\(\[]([^\d\]\)]+)[\)\]].*')
 # matches groupnames from paranthesis at end of filename
 RE_GROUP_END = re.compile(r'^.*[\(\[]([^\d\]\)]+)[\)\]].*')
+# matches groupnames/tags at end of file
+RE_TAG_END = re.compile(r'^.*-(\w+)$')
 
 # matches anidb's default english episode names
 RE_DEFAULT_EPNAME = re.compile(r'Episode S?\d+', re.I)
@@ -334,15 +336,15 @@ def arrange_files(
                 group = epfile.group.name.replace('/', '⁄')
             else:
                 # if anidb don't know about the group we try to parse the filename
-                # look for [] or ()-blocks at start or end of filename, and assume this
-                # is the groupname.
-                m = re.match(RE_GROUP_START, os.path.split(f)[-1])
+                # using regexps, and assume this is the groupname.
+                fname = os.path.splitext(os.path.basename(f))[0]
+                m = re.match(RE_GROUP_START, fname)
                 if not m:
-                    m = re.match(RE_GROUP_END, os.path.split(f)[-1])
+                    m = re.match(RE_GROUP_END, fname)
+                if not m:
+                    m = re.match(RE_TAG_END, fname)
                 if m:
-                    # since we matched on filename previously there is no need to
-                    # replace any chars here.
-                    group = m.group(1)
+                    group = m.group(1).replace('/', '⁄')
                 else:
                     group = "unknown"
         except IllegalAnimeObject:
