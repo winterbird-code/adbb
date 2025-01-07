@@ -218,11 +218,11 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
             all_arts = { k: [] for k in JELLYFIN_ART_TYPES }
             if movie:
                 arts = [x for x in anime.fanart if \
-                        (obj.tmdbid and 'tmdb_id' in x and x['tmdb_id'] == obj.tmdbid) or \
-                        (obj.imdbid and 'imdb_id' in x and x['imdb_id'] == obj.imdbid)]
+                        (anime.tmdbid and 'tmdb_id' in x and x['tmdb_id'] == anime.tmdbid) or \
+                        (anime.imdbid and 'imdb_id' in x and x['imdb_id'] == anime.imdbid)]
             else:
                 arts = [x for x in anime.fanart if \
-                        (obj.tvdbid and 'thetvdb_id' in x and x['thetvdb_id'] == obj.tvdbid)]
+                        (anime.tvdbid and 'thetvdb_id' in x and x['thetvdb_id'] == anime.tvdbid)]
             for entry in arts:
                 for key, value in entry.items():
                     if key in FANART_MAP:
