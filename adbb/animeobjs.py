@@ -886,9 +886,10 @@ class File(AniDBObj):
             # add this instead.
             if self.db_data and self.db_data.is_generic:
                 update_mylist = True
+            else:
+                self._is_generic = False
 
-            self._is_generic = False
-            finfo['is_generic'] = self._is_generic
+            finfo['is_generic'] = False
             if 'state' in finfo:
                 state = int(finfo['state'])
                 del finfo['state']
@@ -940,6 +941,7 @@ class File(AniDBObj):
             finfo['mylist_other'] = self.db_data.mylist_other
             finfo['lid'] = None
             self.remove_from_mylist()
+            self._is_generic = False
 
         finfo['part'] = self._part
 
