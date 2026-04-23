@@ -15,7 +15,7 @@ with open(readme, 'r', encoding='utf-8') as f:
 
 setup(
         name='adbb',
-        version=f'{version:.1f}.1',
+        version=f'{version:.1f}.2',
         description="Object Oriented AniDB UDP Client Library",
         long_description_content_type="text/markdown",
         long_description=long_description,
