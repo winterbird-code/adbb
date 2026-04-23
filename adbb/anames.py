@@ -359,7 +359,7 @@ def get_tvdb_episode(aid, epno):
 
     if 'map' in maps:
         for m in maps['map']:
-            if m['anidbseason'] != anidb_season:
+            if m['anidbseason'] != anidb_season or 'tvdbseason' not in m:
                 continue
             if 'epmap' in m:
                 if str_epno in m['epmap']:
@@ -368,20 +368,16 @@ def get_tvdb_episode(aid, epno):
                     if tvdb_epno == "0" or type(tvdb_epno) == tuple and tvdb_epno[0] == "0":
                         tvdb_season = None
                         continue
-                    if 'tvdbseason' in m:
-                        tvdb_season = m['tvdbseason']
+                    tvdb_season = m['tvdbseason']
                     return (tvdb_season, tvdb_epno)
-            if tvdbid_has_absolute_order(maps['tvdbid']) and 'tvdbseason' in m and m['tvdbseason'] != "0":
+            if tvdbid_has_absolute_order(maps['tvdbid']) and m['tvdbseason'] != "0":
                 # Do not mix absolute and seasoned order...
                 continue
-            if not all([ x in m for x in ['start', 'end']]):
-                continue
-            if 'start' in m and int_epno < int(m['start']):
+            if not 'start' in m or int_epno < int(m['start']):
                 continue
             if 'end' in m and int_epno > int(m['end']):
                 continue
-            if 'tvdbseason' in m:
-                tvdb_season = m['tvdbseason']
+            tvdb_season = m['tvdbseason']
             if 'offset' in m:
                 ret_epno = int(m['offset']) + int_epno
                 if ret_epno < 1:
