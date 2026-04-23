@@ -253,17 +253,19 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                         continue
                     os.rename(tmpart, os.path.join(art_dir, fname))
             if not all_arts['poster']:
-                fname = 'poster.jpg'
-                tmpart = os.path.join(art_dir, f'.{fname}.tmp')
-                try:
-                    with open(tmpart, 'wb') as f:
-                        adbb.download_image(f, anime)
-                    os.rename(tmpart, os.path.join(art_dir, fname))
-                except (urllib.error.HTTPError,
-                        urllib.error.URLError,
-                        http.client.RemoteDisconnected) as e:
-                    adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
-                    os.remove(tmpart)
+                # disable image fetching for now; behind captcha
+                if False:
+                    fname = 'poster.jpg'
+                    tmpart = os.path.join(art_dir, f'.{fname}.tmp')
+                    try:
+                        with open(tmpart, 'wb') as f:
+                            adbb.download_image(f, anime)
+                        os.rename(tmpart, os.path.join(art_dir, fname))
+                    except (urllib.error.HTTPError,
+                            urllib.error.URLError,
+                            http.client.RemoteDisconnected) as e:
+                        adbb.log.error(f'Failed to download anidb image for {anime}: {e}')
+                        os.remove(tmpart)
 
     os.rename(tmpfile, nfo_path)
 
@@ -664,16 +666,31 @@ def jellyfin_anime_sync():
             adbb.update_animetitles()
 
 
-            # we actually do not need the jellyfin client that much...
             jf_client = init_jellyfin(args.jellyfin_url, user, password)
-            res = jf_client.jellyfin.user_items(params={
-                    'recursive': True,
-                    'mediaTypes': [ 'Video' ],
-                    'collapseBoxSetItems': False,
-                    'fields': 'Path',
-                    })
+
+            # this api call is significantly slower on jellyfin > 10.10.7;
+            # chunking to not time out on large libraries
+            index = 0
+            nr_items = 1
+            limit = 500
+            metadata = {}
+            while index < nr_items:
+                res = jf_client.jellyfin.user_items(params={
+                        'recursive': True,
+                        'mediaTypes': [ 'Video' ],
+                        'collapseBoxSetItems': False,
+                        'fields': 'Path',
+                        'startIndex': index,
+                        'limit': limit,
+                        })
+                metadata.update({os.path.realpath(x['Path']): x
+                                 for x in res['Items'] if 'Path' in x and
+                                 os.path.realpath(x['Path']).startswith(args.path)
+                                 })
+                nr_items = res['TotalRecordCount']
+                index += limit
+
             jf_client.stop()
-            metadata = { os.path.realpath(x['Path']): x for x in res['Items'] if 'Path' in x and os.path.realpath(x['Path']).startswith(args.path) }
             adbb.log.debug(f"Found {len(metadata)} files in jellyfin")
 
             # search for a file in the metadata dict and return when watched
