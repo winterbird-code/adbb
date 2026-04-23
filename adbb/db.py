@@ -24,7 +24,7 @@ Base = declarative_base()
 
 
 def init_db(url):
-    engine = create_engine(url, pool_recycle=300)
+    engine = create_engine(url, pool_size=10, max_overflow=-1)
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, expire_on_commit=False)
     return session
