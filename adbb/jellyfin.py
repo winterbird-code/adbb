@@ -141,7 +141,7 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     e.text = season
                     e = ET.SubElement(root, 'episode')
                     e.text = tep
-                    e = ET.SubElement(root, 'uniqueid', attrib={'type': 'anidb', 'default': 'true' })
+                    e = ET.SubElement(root, 'uniqueid', attrib={'type': 'AniDB', 'default': 'true' })
                     e.text = str(episode.eid)
                     etree = ET.ElementTree(element=root)
                     ET.indent(etree)
@@ -196,16 +196,16 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                 e = ET.SubElement(root, 'rating')
                 e.text = str(obj.rating)
             if not (movie and anime.nr_of_episodes > 1):
-                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'anidb', 'default': 'true' })
+                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'AniDB', 'default': 'true' })
                 e.text = str(obj.aid)
             if obj.tmdbid:
-                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'tmdb'})
+                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'TMDB'})
                 e.text = obj.tmdbid
             if obj.imdbid:
-                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'imdb'})
+                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'IMDb'})
                 e.text = obj.imdbid
             if obj.tvdbid:
-                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'tvdb'})
+                e = ET.SubElement(root, 'uniqueid', attrib={'type': 'TheTVDB'})
                 e.text = obj.tvdbid
             etree = ET.ElementTree(element=root)
             ET.indent(etree)
