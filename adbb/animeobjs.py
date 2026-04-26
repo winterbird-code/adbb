@@ -22,6 +22,7 @@ import os
 import random
 import re
 import threading
+import time
 import urllib.parse
 import urllib.request
 
@@ -320,6 +321,14 @@ class Anime(AniDBObj):
             self._close_db_session(sess)
         return relations
 
+    def extid(self, source, id_type='tv'):
+        if source == 'thetvdb':
+            return adbb.anames.get_tvdbid(self.aid, id_type)
+        elif source == 'tmdb':
+            return adbb.anames.get_tmdbid(self.aid, id_type)
+        elif source == 'imdb':
+            return adbb.anames.get_imdbid(self.aid, id_type)
+
     @property
     def tvdbid(self):
         return adbb.anames.get_tvdbid(self.aid)
@@ -329,6 +338,7 @@ class Anime(AniDBObj):
     @property
     def imdbid(self):
         return adbb.anames.get_imdbid(self.aid)
+
     @property
     def fanart(self):
         if not adbb.fanart_key:
@@ -340,50 +350,38 @@ class Anime(AniDBObj):
                 }
         base_url = 'https://webservice.fanart.tv/'
 
-        tv_id = self.tvdbid
-        movie_ids = [x for x in [self.tmdbid, self.imdbid] if x]
-        if movie_ids:
-            all_ids = []
-            for i in movie_ids:
-                if type(i) == str:
-                    all_ids.append(i)
-                elif type(i) == list:
-                    all_ids.extend(i)
-            movie_ids = all_ids
-
-        if movie_ids:
-            for i in movie_ids:
-                url = urllib.parse.urljoin(base_url, f'/v3/movies/{i}')
-                req = urllib.request.Request(url, headers=headers)
-                try:
-                    with urllib.request.urlopen(req) as f:
-                        res = json.loads(f.read())
-                except urllib.error.HTTPError as e:
-                    if e.code != 404:
-                        adbb.log.error(f'Failed to fetch fanart for movie ID {i}: {e}')
-                        return []
-                    res = None
-                except urllib.error.URLError as e:
-                    adbb.log.warning(f'Failed to fetch fanart for movie ID {i}: {e}')
-                    return []
-                if res:
-                    ret.append(res)
+        # Currently fanart.tv only supports tvdbids for tv fanart
+        tv_id = self.extid('thetvdb', 'tv')
+        movie_ids = [x for x in [self.extid('tmdb', 'movie'), self.extid('imdb', 'movie')] if x]
+        urls = []
+        for i in movie_ids:
+            if type(i) == str:
+                urls.append(urllib.parse.urljoin(base_url, f'/v3.2/movies/{i}'))
+            elif type(i) == list:
+                urls.extend([urllib.parse.urljoin(base_url, f'/v3.2/movies/{x}') for x in i])
         if tv_id:
-            url = urllib.parse.urljoin(base_url, f'/v3/tv/{tv_id}')
+            urls.append(urllib.parse.urljoin(base_url, f'/v3.2/tv/{tv_id}'))
+
+        for url in urls:
             req = urllib.request.Request(url, headers=headers)
             try:
                 with urllib.request.urlopen(req) as f:
                     res = json.loads(f.read())
             except urllib.error.HTTPError as e:
                 if e.code != 404:
-                    adbb.log.error(f'Failed to fetch fanart for {self}: {e}')
+                    adbb.log.error(f'Failed to fetch fanart at {url}: {e}')
                     return []
+                if e.code == 429 and 'Retry-After' in e.headers:
+                    sleep = int(e.headers.get("Retry-After", 0))
+                    adbb.log.warning(f'Fanart ratelimited, sleeping for {sleep} seconds')
+                    time.sleep(sleep)
                 res = None
             except urllib.error.URLError as e:
-                adbb.log.warning(f'Failed to fetch fanart for {self}: {e}')
+                adbb.log.warning(f'Failed to fetch fanart at {url}: {e}')
                 return []
             if res:
                 ret.append(res)
+
         return ret
 
 
@@ -429,7 +427,14 @@ class Episode(AniDBObj):
 
     @property
     def tvdb_episode(self):
-        res = adbb.anames.get_tvdb_episode(self.anime.aid, self.episode_number)
+        return self._get_ext_epid("tvdb")
+
+    @property
+    def tmdb_episode(self):
+        return self._get_ext_epid("tmdb")
+
+    def _get_ext_epid(self, source):
+        res = adbb.anames.get_tv_episode(self.anime.aid, self.episode_number, source)
         # special case if when anidb adds parts as regular episodes on movies
         if self.anime.nr_of_episodes == 1 and self._part is None:
             season, ep = res
@@ -468,13 +473,11 @@ class Episode(AniDBObj):
 
     @property
     def tmdbid(self):
-        ids = self.anime.tmdbid
-        return self._get_mdbid(ids)
+        return self._get_mdbid(self.anime.extid('tmdb', 'movie'))
 
     @property
     def imdbid(self):
-        ids = self.anime.imdbid
-        return self._get_mdbid(ids)
+        return self._get_mdbid(self.anime.extid('imdb', 'movie'))
 
     @property
     def in_mylist(self):

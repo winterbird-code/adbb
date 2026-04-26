@@ -94,20 +94,17 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
             f.write('<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n')
             for ep in eps:
                 episode = adbb.Episode(anime=anime, epno=ep)
-                season, tvdb_ep = episode.tvdb_episode
+                season, db_ep = episode.tvdb_episode
+                if not db_ep:
+                    season, db_ep = episode.tmdb_episode
 
-                if season == 'a':
-                    season = '1'
-                elif season == 's':
-                    season = '0'
-
-                if type(tvdb_ep) == tuple:
-                    tvdb_eps = [tvdb_ep[0]]
-                elif '+' in tvdb_ep:
-                    tvdb_eps = tvdb_ep.split('+')
+                if type(db_ep) == tuple:
+                    db_eps = [db_ep[0]]
+                elif '+' in db_ep:
+                    db_eps = db_ep.split('+')
                 else:
-                    tvdb_eps = [tvdb_ep]
-                for tep in tvdb_eps:
+                    db_eps = [db_ep]
+                for tep in db_eps:
                     root = ET.Element('episodedetails')
                     if anime.nr_of_episodes == 1:
                         orig_title = [x.title for x in anime.titles if x.lang == 'jpn' and x.titletype == 'official']
@@ -138,7 +135,7 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                         e = ET.SubElement(root, 'rating')
                         e.text = str(episode.rating)
                     e = ET.SubElement(root, 'season')
-                    e.text = season
+                    e.text = str(season)
                     e = ET.SubElement(root, 'episode')
                     e.text = tep
                     e = ET.SubElement(root, 'uniqueid', attrib={'type': 'AniDB', 'default': 'true' })
@@ -201,6 +198,10 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
             if obj.tmdbid:
                 e = ET.SubElement(root, 'uniqueid', attrib={'type': 'TMDB'})
                 e.text = obj.tmdbid
+            elif not movie:
+                if tmdbid := anime.extid('tmdb', 'tv'):
+                    e = ET.SubElement(root, 'uniqueid', attrib={'type': 'TMDB'})
+                    e.text = tmdbid
             if obj.imdbid:
                 e = ET.SubElement(root, 'uniqueid', attrib={'type': 'IMDb'})
                 e.text = obj.imdbid
@@ -216,13 +217,7 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
         art_dir = os.path.split(nfo_path)[0]
         if fetch_fanart:
             all_arts = { k: [] for k in JELLYFIN_ART_TYPES }
-            if movie:
-                arts = [x for x in anime.fanart if \
-                        (anime.tmdbid and 'tmdb_id' in x and x['tmdb_id'] == anime.tmdbid) or \
-                        (anime.imdbid and 'imdb_id' in x and x['imdb_id'] == anime.imdbid)]
-            else:
-                arts = [x for x in anime.fanart if \
-                        (anime.tvdbid and 'thetvdb_id' in x and x['thetvdb_id'] == anime.tvdbid)]
+            arts = anime.fanart
             for entry in arts:
                 for key, value in entry.items():
                     if key in FANART_MAP:
@@ -253,7 +248,7 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                         continue
                     os.rename(tmpart, os.path.join(art_dir, fname))
             if not all_arts['poster']:
-                # disable image fetching for now; behind captcha
+                # disable anidb image fetching for now; behind captcha
                 if False:
                     fname = 'poster.jpg'
                     tmpart = os.path.join(art_dir, f'.{fname}.tmp')
@@ -295,10 +290,11 @@ def create_anime_collection(
         return
 
     adbb.log.debug(f'Will create collection for {len(relations)} entries related to {anime}')
-    paths = [x for x in [movie_path, tv_path] if x]
+    tv_paths = [ x for x in [tv_path] if x]
+    movie_paths = [ x for x in [movie_path] if x]
     if anidb_path:
-        paths.extend([os.path.join(anidb_path, 'Movies'),
-                     os.path.join(anidb_path, 'Series')])
+        tv_paths.append(os.path.join(anidb_path, 'Series'))
+        movie_paths.append(os.path.join(anidb_path, 'Movies'))
 
     os.makedirs(collection_dir, exist_ok=True)
     # Fanart
@@ -357,23 +353,34 @@ def create_anime_collection(
     items = ET.SubElement(troot, 'CollectionItems')
     added_paths = []
     for a in relations:
-        directories = []
-        if a.tmdbid:
-            if type(a.tmdbid) == list:
-                for i in a.tmdbid:
-                    directories.extend([os.path.join(x, f'adbb [tmdbid-{i}]') for x in paths])
+        movie_dirs = []
+        tv_dirs = []
+        tvdb = a.extid('thetvdb', 'tv')
+        tmdb_tv = a.extid('tmdb', 'tv')
+        tmdb_movie = a.extid('tmdb', 'movie')
+        imdb = a.extid('imdb', 'movie')
+
+        if tvdb:
+            tv_dirs.extend([os.path.join(x, f'adbb [tvdbid-{ids}]') for x in tv_paths])
+        if tmdb_tv:
+            tv_dirs.extend([os.path.join(x, f'adbb [tmdbid-{ids}]') for x in tv_paths])
+        if tmdb_movie:
+            if type(tmdb_movie) == list:
+                for i in tmdb_movie:
+                    movie_dirs.extend([os.path.join(x, f'adbb [tmdbid-{i}]') for x in movie_paths])
             else:
-                directories.extend([os.path.join(x, f'adbb [tmdbid-{a.tmdbid}]') for x in paths])
-        if a.imdbid:
-            if type(a.imdbid) == list:
-                for i in a.imdbid:
-                    directories.extend([os.path.join(x, f'adbb [imdbid-{i}]') for x in paths])
+                movie_dirs.extend([os.path.join(x, f'adbb [tmdbid-{tmdb_movie}]') for x in movie_paths])
+        if imdb:
+            if type(imdb) == list:
+                for i in imdb:
+                    movie_dirs.extend([os.path.join(x, f'adbb [imdbid-{i}]') for x in movie_paths])
             else:
-                directories.extend([os.path.join(x, f'adbb [imdbid-{a.imdbid}]') for x in paths])
-        if a.tvdbid:
-            directories.extend([os.path.join(x, f'adbb [tvdbid-{a.tvdbid}]') for x in paths])
-        directories.extend([os.path.join(x, a.title.replace('/', '⁄').lstrip('.')) for x in paths])
-        present_dirs = [d for d in directories if os.path.isdir(d)]
+                movie_dirs.extend([os.path.join(x, f'adbb [imdbid-{imdb}]') for x in movie_paths])
+
+        tv_dirs.extend([os.path.join(x, a.title.replace('/', '⁄').lstrip('.')) for x in tv_paths])
+        movie_dirs.extend([os.path.join(x, a.title.replace('/', '⁄').lstrip('.')) for x in movie_paths])
+
+        present_dirs = [d for d in tv_dirs + movie_dirs if os.path.isdir(d)]
         for d in present_dirs:
             for root, dirs, files in os.walk(d):
                 dirs[:] = []
@@ -564,16 +571,16 @@ def jellyfin_anime_sync():
 
         anime = adbb_file.anime
         episode = adbb_file.episode
-        tmdbid = episode.tmdbid
+        tvdbid = anime.extid('thetvdb', 'tv')
+        tmdbid_tv = anime.extid('tmdb', 'tv')
+        tmdbid_movie = episode.tmdbid
         imdbid = episode.imdbid
-        movie = any([tmdbid, imdbid])
 
         aname = anime.title.replace('/', '⁄').lstrip('.')
         ext = path.rsplit('.', 1)[-1]
-        season, epno = episode.tvdb_episode
 
-        if season == 's':
-            season = '0'
+        movie = any([x for x in [tmdbid_movie, imdbid]])
+
 
         if (movie or (anime.nr_of_episodes == 1 and episode.episode_number == "1")) and adbb_file.part:
             partstr = f'-part{adbb_file.part}'
@@ -589,37 +596,47 @@ def jellyfin_anime_sync():
         else:
             exclusive_dir = None
 
-        if tmdbid and args.moviedb_library:
-            d = os.path.join(args.moviedb_library, f'adbb [tmdbid-{tmdbid}]')
+        if args.moviedb_library and (tmdbid_movie or imdbid):
+            if tmdbid_movie:
+                d = os.path.join(args.moviedb_library, f'adbb [tmdbid-{tmdbid_movie}]')
+            elif imdbid:
+                d = os.path.join(args.moviedb_library, f'adbb [imdbid-{imdbid}]')
             linkname = os.path.basename(path)
             link = os.path.join(d, linkname)
             adbb.utils.link_to_directory(path, link, exclusive_dir=exclusive_dir, dry_run=args.dry_run)
             if args.write_nfo:
                 write_nfo(episode, os.path.join(d, 'movie.nfo'), dry_run=args.dry_run)
-        elif imdbid and args.moviedb_library:
-            d = os.path.join(args.moviedb_library, f'adbb [imdbid-{imdbid}]')
-            linkname = os.path.basename(path)
-            link = os.path.join(d, linkname)
-            adbb.utils.link_to_directory(path, link, exclusive_dir=exclusive_dir, dry_run=args.dry_run)
-            if args.write_nfo:
-                write_nfo(episode, os.path.join(d, 'movie.nfo'), dry_run=args.dry_run)
-        elif anime.tvdbid and args.tvdb_library and epno:
+            return
+
+        epno = None
+        if args.tvdb_library and (tvdbid or tmdbid_tv):
+            if tvdbid:
+                season, epno = episode.tvdb_episode
+                d = os.path.join(args.tvdb_library, f'adbb [tvdbid-{tvdbid}]')
+                tv_source = 'tvdb'
+            elif tmdbid_tv:
+                season, epno = episode.tmdb_episode
+                d = os.path.join(args.tvdb_library, f'adbb [tmdbid-{tmdbid_tv}]')
+                tv_source = 'tmdb'
+
+        if epno:
             if type(epno) is tuple:
                 partstr = f'-part{epno[1]}'
                 epno = epno[0]
             elif '+' in epno:
                 epno = epno.split('+')
-            d = os.path.join(args.tvdb_library, f'adbb [tvdbid-{anime.tvdbid}]')
-            if type(epno) is list:
-                if epno[0] == '1' and args.write_nfo and season in ['1', 'a']:
+                if epno[0] == '1' and args.write_nfo and season == 1:
                     write_nfo(episode, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
-            elif epno == '1' and args.write_nfo and season in ['1', 'a']:
+            elif epno == '1' and args.write_nfo and season == 1:
                 write_nfo(episode, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
 
             epnos = adbb_file.multiep
             if epnos[0] != epnos[-1]:
                 last_ep = adbb.Episode(anime=anime, epno=epnos[-1])
-                last_season, last_epno = last_ep.tvdb_episode
+                if tv_source == 'tvdb':
+                    last_season, last_epno = last_ep.tvdb_episode
+                elif tv_source == 'tmdb':
+                    last_season, last_epno = last_ep.tmdb_episode
                 if type(last_epno) is tuple and last_epno[0] == epno:
                         partstr=""
                 elif last_epno and '+' in last_epno:
@@ -627,13 +644,10 @@ def jellyfin_anime_sync():
                 elif last_epno:
                     epno = f'{epno}-{last_epno}'
                 else:
-                    adbb.log.warning(f'No TVDB episode mapping for {last_ep}')
+                    adbb.log.warning(f'No DB episode mapping for {last_ep}')
             elif type(epno) is list:
                 epno = f'{epno[0]}-{epno[-1]}'
-            if adbb.anames.tvdbid_has_absolute_order(anime.tvdbid) and season != '0':
-                linkname = f"{aname} - {epno}{partstr}.{ext}"
-            else:
-                linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
+            linkname = f"{aname} S{season}E{epno}{partstr}.{ext}"
             link = os.path.join(d, linkname)
             adbb.utils.link_to_directory(path, link, exclusive_dir=exclusive_dir, dry_run=args.dry_run)
             if args.write_nfo:

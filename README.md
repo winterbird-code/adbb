@@ -110,13 +110,15 @@ synonym) or 'Ranma 1/2 Nettou Hen' which has "Ranma" as an official title).
 * `title` - main title of this Anime
 * `updated` - datetime when information about this Anime was last fetched from
   AniDB
-* `tvdbid` - TVDB ID for this anime or None if not available.
+* `tvdbid` - TVDB ID for this anime or None if not available. Only for TV
+  Series.
 * `tmdbid` - TMDB ID for this anime or None if not available. Can be a list if
   this Anime maps to multiple movies, use the tmdbid attribute on the Episode
-  object to get the tmdbid for a specific episode.
+  object to get the tmdbid for a specific episode. This attribute is only for
+  the tmdb movie ID. Use the `extid()` method to get the tmdbid for TV Series.
 * `imdbid` - IMDB ID for this anime or None if not available. Can be a list if
   thie Anime maps to multiple movies, use the imdbid attribute on the Episode
-  object to get the imdbid for a specific episode.
+  object to get the imdbid for a specific episode. Only for movies.
 * `relations` - A list of tuples containing relations to this anime. The first
   entry in the tuple is a string describing the relation type and the second is
   an Anime-object for the related anime.
@@ -151,6 +153,17 @@ The following attributes as returned from the AniDB API
 * `trailer_count`
 * `parody_count`
 
+#### Functions
+```python
+extid(source, id_type='tv')
+```
+Return external ID(s) for this anime. Valid types are 'tv' and 'movie'. Valid
+sources is 'thetvdb' (tv only), 'tmdb' (tv and movie) and 'imdb' (movie only).
+Can return a list of IDs if the anidb series is linked to multiple movies at
+the source. Will return None if no valid mapping is found for the given source
+and type combination.
+
+
 ### Episode
 ```python
 Episode(anime=None, epno=None, eid=None)
@@ -171,6 +184,7 @@ episode number. eid should be an int.
   containing the episode number, but can also be a tuple with (episode_number,
   partnumber) or a string containing episode numbers separated by '+' if the
   anidb episode is mapped to part of a TVDB episode or vice versa.
+* `tmdb_episode` - Same as above, but mapped to TMDB.
 * `tmdbid` - TMDB ID for this episode or None if not available.
 * `imdbid` - IMDB ID for this episode or None if not available.
 

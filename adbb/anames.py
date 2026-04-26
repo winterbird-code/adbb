@@ -45,8 +45,20 @@ _update_interval = datetime.timedelta(hours=36)
 
 titles = None
 anilist = None
-absolute_order_set = None
 languages = None
+
+_tv_mappings={
+        "tvdb": {
+            "id": "tvdbid",
+            "season": "defaulttvdbseason",
+            "offset": "episodeoffset",
+            "map_season": "tvdbseason" },
+        "tmdb": {
+            "id": "tmdbtv",
+            "season": "tmdbseason",
+            "offset": "tmdboffset",
+            "map_season": "tmdbseason" }
+        }
 
 def update_xml(url):
     file_name = url.split('/')[-1]
@@ -100,16 +112,14 @@ def update_xml(url):
 def update_anilist():
     # These are the global variables we want to update
     # reset them here.
-    global anilist, absolute_order_set
+    global anilist
     anilist = {}
-    absolute_order_set = set()
 
     xml_file = update_xml(_anime_list_url)
     if not xml_file and not anilist:
         adbb.log.critical("Missing, and unable to fetch, list of anime mappings")
         sys.exit(2)
     xml = _read_anidb_xml(xml_file)
-    absolute_order = {}
 
     # Iterate every anime entry in XML; save attributes in the anilist dict.
     for anime in xml.iter("anime"):
@@ -117,29 +127,17 @@ def update_anilist():
         a_attrs = anime.attrib
         del a_attrs['anidbid']
 
-        # keep track if this anime has the absolute order flag set and if it
-        # has any other non-special seasons explicitly specified
-        has_absolute_order = False
-        has_season_mapping = False
-        if 'defaulttvdbseason' in a_attrs and 'tvdbid' in a_attrs and a_attrs['defaulttvdbseason'] == "a":
-            has_absolute_order = True
-
-        if has_absolute_order and not a_attrs['tvdbid'] in absolute_order:
-            absolute_order[a_attrs['tvdbid']] = set()
-
         anilist[aid] = a_attrs
         mappings=anime.find('mapping-list')
         if mappings:
-            anilist[aid]['map'] = []
+            anilist[aid]['map'] = {}
             for m in mappings.iter("mapping"):
                 attrs = m.attrib
-
-                # Check for non-special seasons for series with
-                # defaulttvdbseason set to absolute
-                if has_absolute_order:
-                    if all([x in attrs for x in ['tvdbseason', 'start']]) and int(attrs['tvdbseason']) > 0:
-                        absolute_order[a_attrs['tvdbid']].add(int(attrs['tvdbseason']))
-                        has_season_mapping = True
+                for source in ('tmdb', 'tvdb'):
+                    if not source in anilist[aid]['map']:
+                        anilist[aid]['map'][source] = []
+                    if not f'{source}season' in attrs:
+                        continue
 
                 if m.text:
                     attrs['epmap'] = {}
@@ -165,23 +163,10 @@ def update_anilist():
                             newmap[anidb_ep] = (my_epno, part)
                     attrs['epmap'] = newmap
 
-                anilist[aid]['map'].append(attrs)
+                anilist[aid]['map'][source].append(attrs)
 
-        # no non-special season specified; we must treat this tvdb entry as
-        # absolute order.
-        if has_absolute_order and not has_season_mapping:
-            absolute_order_set.add(a_attrs['tvdbid'])
-            del absolute_order[a_attrs['tvdbid']]
         name=anime.find('name')
         anilist[aid]['name']=name.text
-
-    # Now that we have gone through all entries, check if there are season
-    # mappings for all seasons for the default-absolute-order series. If there
-    # is, we don't need to treat is as absolute ordered.
-    for tvdbid,seasons in absolute_order.items():
-        season_list = sorted(seasons)
-        if len(season_list) != season_list[-1]:
-            absolute_order_set.add(tvdbid)
 
 
 def update_animetitles():
@@ -298,45 +283,51 @@ def anilist_maps(aid):
         return anilist[str(aid)]
     return {}
 
-def get_tvdbid(aid):
+def _get_tvid(aid, key):
     maps = anilist_maps(aid)
-    if 'tvdbid' in maps:
+    if key in maps:
         try:
-            int(maps['tvdbid'])
+            int(maps[key])
         except ValueError:
             return None
-        return maps['tvdbid']
+        return maps[key]
     return None
 
-def get_tmdbid(aid):
-    maps = anilist_maps(aid)
-    if 'tmdbid' in maps and maps['tmdbid'] not in ['', 'unknown']:
-        if ',' in maps['tmdbid']:
-            return maps['tmdbid'].split(',')
-        return maps['tmdbid']
+def get_tvdbid(aid, id_type='tv'):
+    if id_type == 'tv':
+        return _get_tvid(aid, 'tvdbid')
     return None
 
-def get_imdbid(aid):
+def _get_movieid(aid, key):
     maps = anilist_maps(aid)
-    if 'imdbid' in maps and maps['imdbid'] not in ['', 'unknown']:
-        if ',' in maps['imdbid']:
-            return maps['imdbid'].split(',')
-        return maps['imdbid']
+    if key in maps and maps[key] not in ['', 'unknown']:
+        if ',' in maps[key]:
+            return maps[key].split(',')
+        return maps[key]
     return None
 
-def tvdbid_has_absolute_order(tvdbid):
-    global absolute_order_set
-    return tvdbid in absolute_order_set
+def get_tmdbid(aid, id_type='movie'):
+    if id_type == 'tv':
+        return _get_tvid(aid, 'tmdbtv')
+    elif id_type == 'movie':
+        return _get_movieid(aid, "tmdbid")
+    return None
 
-def get_tvdb_episode(aid, epno):
+def get_imdbid(aid, id_type='movie'):
+    if id_type == 'movie':
+        return _get_movieid(aid, "imdbid")
+    return None
+
+def _get_tv_episode(aid, epno, source):
+    keys = _tv_mappings[source]
     maps = anilist_maps(aid)
-    if not 'tvdbid' in maps:
+    if not keys["id"] in maps:
         return (None, None)
 
-    if 'defaulttvdbseason' in maps:
-        tvdb_season = maps['defaulttvdbseason']
-    else:
-        tvdb_season = None
+    db_season = maps.get(keys['season'], None)
+    if db_season == "a":
+        db_season = "1"
+
     anidb_season = "1"
     anidb_special_offset = 0
     if str(epno).upper().startswith('S'):
@@ -358,42 +349,48 @@ def get_tvdb_episode(aid, epno):
     str_epno = str(int_epno)
 
     if 'map' in maps:
-        for m in maps['map']:
-            if m['anidbseason'] != anidb_season or 'tvdbseason' not in m:
+        for m in maps['map'].get(source, []):
+            if m['anidbseason'] != anidb_season or keys['map_season'] not in m:
                 continue
             if 'epmap' in m:
                 if str_epno in m['epmap']:
                     # Exact match for episode
-                    tvdb_epno = m['epmap'][str_epno]
-                    if tvdb_epno == "0" or type(tvdb_epno) == tuple and tvdb_epno[0] == "0":
-                        tvdb_season = None
+                    db_epno = m['epmap'][str_epno]
+                    if db_epno == "0" or type(db_epno) == tuple and db_epno[0] == "0":
+                        db_season = None
                         continue
-                    tvdb_season = m['tvdbseason']
-                    return (tvdb_season, tvdb_epno)
-            if tvdbid_has_absolute_order(maps['tvdbid']) and m['tvdbseason'] != "0":
-                # Do not mix absolute and seasoned order...
-                continue
+                    db_season = m[keys['map_season']]
+                    return (int(db_season), db_epno)
             if not 'start' in m or int_epno < int(m['start']):
                 continue
             if 'end' in m and int_epno > int(m['end']):
                 continue
-            tvdb_season = m['tvdbseason']
+            db_season = m[keys['map_season']]
             if 'offset' in m:
                 ret_epno = int(m['offset']) + int_epno
                 if ret_epno < 1:
                     return (None, None)
-                return (tvdb_season, str(ret_epno))
-    if not tvdb_season:
+                return (int(db_season), str(ret_epno))
+    if not db_season:
         # No season specified or episode mapped to 0
         return (None, None)
     if anidb_season == "0":
         # special, but not explicitly mapped in anime-list
-        return ("s", str_epno)
+        return (0, str_epno)
 
-    if 'episodeoffset' in maps:
-        ret_epno = int(maps['episodeoffset']) + int_epno
+    if offset := int(maps.get(keys['offset'], 0)):
+        ret_epno = offset + int_epno
         if ret_epno < 1:
             return (None, None)
-        return (tvdb_season, str(int(maps['episodeoffset']) + int_epno))
-    return (tvdb_season, str_epno)
+        return (int(db_season),str(ret_epno))
+    return (int(db_season), str_epno)
 
+
+def get_tv_episode(aid, epno, source="tvdb"):
+    return _get_tv_episode(aid, epno, source)
+
+def get_tvdb_episode(aid, epno):
+    return _get_tv_episode(aid, epno, "tvdb")
+
+def get_tmdb_episode(aid, epno):
+    return _get_tv_episode(aid, epno, "tmdb")
