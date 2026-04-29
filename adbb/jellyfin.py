@@ -100,10 +100,9 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
 
                 if type(db_ep) == tuple:
                     db_eps = [db_ep[0]]
-                elif '+' in db_ep:
-                    db_eps = db_ep.split('+')
-                else:
+                elif type(db_ep) == int:
                     db_eps = [db_ep]
+
                 for tep in db_eps:
                     root = ET.Element('episodedetails')
                     if anime.nr_of_episodes == 1:
@@ -137,7 +136,7 @@ def write_nfo(obj, nfo_path, fetch_fanart=True, dry_run=False):
                     e = ET.SubElement(root, 'season')
                     e.text = str(season)
                     e = ET.SubElement(root, 'episode')
-                    e.text = tep
+                    e.text = str(tep)
                     e = ET.SubElement(root, 'uniqueid', attrib={'type': 'AniDB', 'default': 'true' })
                     e.text = str(episode.eid)
                     etree = ET.ElementTree(element=root)
@@ -623,11 +622,10 @@ def jellyfin_anime_sync():
             if type(epno) is tuple:
                 partstr = f'-part{epno[1]}'
                 epno = epno[0]
-            elif '+' in epno:
-                epno = epno.split('+')
-                if epno[0] == '1' and args.write_nfo and season == 1:
+            elif type(epno) is list:
+                if epno[0] == 1 and args.write_nfo and season == 1:
                     write_nfo(episode, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
-            elif epno == '1' and args.write_nfo and season == 1:
+            elif epno == 1 and args.write_nfo and season == 1:
                 write_nfo(episode, os.path.join(d, 'tvshow.nfo'), dry_run=args.dry_run)
 
             epnos = adbb_file.multiep
@@ -639,8 +637,8 @@ def jellyfin_anime_sync():
                     last_season, last_epno = last_ep.tmdb_episode
                 if type(last_epno) is tuple and last_epno[0] == epno:
                         partstr=""
-                elif last_epno and '+' in last_epno:
-                    epno = f"{epno}-{last_epno.split('+')[-1]}"
+                elif type(last_epno) is list:
+                    epno = f"{epno}-{last_epno[-1]}"
                 elif last_epno:
                     epno = f'{epno}-{last_epno}'
                 else:

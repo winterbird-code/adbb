@@ -180,9 +180,9 @@ episode number. eid should be an int.
 * `updated` - datetime when information about this episode was last fetched
   from AniDB
 * `tvdb_episode` - A tuple containing `(season, episode)` if this episode can
-  be mapped to a TVDB episode. Note that `episode` is usualy a string
+  be mapped to a TVDB episode. Note that `episode` is usualy an integer
   containing the episode number, but can also be a tuple with (episode_number,
-  partnumber) or a string containing episode numbers separated by '+' if the
+  partnumber) or a list of integers containing episode numbers if the
   anidb episode is mapped to part of a TVDB episode or vice versa.
 * `tmdb_episode` - Same as above, but mapped to TMDB.
 * `tmdbid` - TMDB ID for this episode or None if not available.

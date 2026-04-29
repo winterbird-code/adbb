@@ -318,6 +318,21 @@ def get_imdbid(aid, id_type='movie'):
         return _get_movieid(aid, "imdbid")
     return None
 
+# return (season, epno) where season is a int
+# epno can be:
+# An int for an episode number
+# A tuple with episode number + partnumber when multiple anidb episodes maps to
+# the same target or
+# An array with episodes number if the anidb episode is mapped to multiple
+# target episodes
+def _db_ep_to_resp(db_epno):
+    if type(db_epno) == int:
+        return db_epno
+    if type(db_epno) == tuple:
+        return db_epno
+    if type(db_epno) == str:
+        return [int(x) for x in db_epno.split('+')]
+
 def _get_tv_episode(aid, epno, source):
     keys = _tv_mappings[source]
     maps = anilist_maps(aid)
@@ -360,7 +375,7 @@ def _get_tv_episode(aid, epno, source):
                         db_season = None
                         continue
                     db_season = m[keys['map_season']]
-                    return (int(db_season), db_epno)
+                    return (int(db_season), _db_ep_to_resp(db_epno))
             if not 'start' in m or int_epno < int(m['start']):
                 continue
             if 'end' in m and int_epno > int(m['end']):
@@ -370,20 +385,20 @@ def _get_tv_episode(aid, epno, source):
                 ret_epno = int(m['offset']) + int_epno
                 if ret_epno < 1:
                     return (None, None)
-                return (int(db_season), str(ret_epno))
+                return (int(db_season), ret_epno)
     if not db_season:
         # No season specified or episode mapped to 0
         return (None, None)
     if anidb_season == "0":
         # special, but not explicitly mapped in anime-list
-        return (0, str_epno)
+        return (0, int_epno)
 
     if offset := int(maps.get(keys['offset'], 0)):
         ret_epno = offset + int_epno
         if ret_epno < 1:
             return (None, None)
-        return (int(db_season),str(ret_epno))
-    return (int(db_season), str_epno)
+        return (int(db_season), ret_epno)
+    return (int(db_season), int_epno)
 
 
 def get_tv_episode(aid, epno, source="tvdb"):
