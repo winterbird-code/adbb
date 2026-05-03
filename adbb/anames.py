@@ -350,18 +350,26 @@ def _get_tv_episode(aid, epno, source):
     anidb_special_offset = 0
     if str(epno).upper().startswith('S'):
         anidb_season = "0"
+    elif str(epno).upper().startswith('OP'):
+        anidb_season = "0"
+        anidb_special_offset = 100
+    elif str(epno).upper().startswith('ED'):
+        anidb_season = "0"
+        anidb_special_offset = 150
     elif str(epno).upper().startswith('T'):
         anidb_season = "0"
         anidb_special_offset = 200
+    elif str(epno).upper().startswith('C'):
+        anidb_season = "0"
+        anidb_special_offset = 300
     elif str(epno).upper().startswith('O'):
         anidb_season = "0"
         anidb_special_offset = 400
 
     try:
-        int_epno = int(str(epno).upper().strip('STO')) + anidb_special_offset
+        int_epno = int(str(epno).upper().strip('STOPEDC')) + anidb_special_offset
     except ValueError:
-        # Only specials of type Special, Trailer or Other are supported by
-        # anime-lists
+        # Unsupported special type
         return (None, None)
 
     str_epno = str(int_epno)
