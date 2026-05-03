@@ -362,9 +362,9 @@ def create_anime_collection(
         imdb = a.extid('imdb', 'movie')
 
         if tvdb:
-            tv_dirs.extend([os.path.join(x, f'adbb [tvdbid-{ids}]') for x in tv_paths])
+            tv_dirs.extend([os.path.join(x, f'adbb [tvdbid-{tvdb}]') for x in tv_paths])
         if tmdb_tv:
-            tv_dirs.extend([os.path.join(x, f'adbb [tmdbid-{ids}]') for x in tv_paths])
+            tv_dirs.extend([os.path.join(x, f'adbb [tmdbid-{tmdb_tv}]') for x in tv_paths])
         if tmdb_movie:
             if type(tmdb_movie) == list:
                 for i in tmdb_movie:
