@@ -296,6 +296,7 @@ def create_anime_collection(
     if anidb_path:
         tv_paths.append(os.path.join(anidb_path, 'Series'))
         movie_paths.append(os.path.join(anidb_path, 'Movies'))
+        movie_paths.append(os.path.join(anidb_path, 'Music Videos'))
 
     os.makedirs(collection_dir, exist_ok=True)
     # Fanart
@@ -591,7 +592,10 @@ def jellyfin_anime_sync():
         if args.anidb_library:
             # For anidb scraper 1 episode == movie
             if adbb_file.anime.nr_of_episodes == 1:
-                exclusive_dir = os.path.join(args.anidb_library, 'Movies', aname)
+                if adbb_file.anime.type == 'Music Video':
+                    exclusive_dir = os.path.join(args.anidb_library, 'Music Videos', aname)
+                else:
+                    exclusive_dir = os.path.join(args.anidb_library, 'Movies', aname)
             else:
                 exclusive_dir = os.path.join(args.anidb_library, 'Series', aname)
         else:
