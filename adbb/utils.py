@@ -434,12 +434,16 @@ def arrange_files(
             anime_dirname = epfile.anime.title.replace('/', '⁄').lstrip('.')
             movie_subdir = 'Movies'
             series_subdir = 'Series'
+            music_video_subdir = 'Music Videos'
             # If target directory has separate subdirs for movies and series;
             # place the files there
             if os.path.isdir(os.path.join(target_dir, movie_subdir)) and epfile.anime.nr_of_episodes == 1:
                 newname = os.path.join(target_dir, movie_subdir, anime_dirname, newname)
             elif os.path.isdir(os.path.join(target_dir, series_subdir)):
                 newname = os.path.join(target_dir, series_subdir, anime_dirname, newname)
+            elif os.path.isdir(os.path.join(target_dir, music_video_subdir)) and \
+                    epfile.anime.nr_of_episodes == 1 and epfile.anime.type == 'Music Video':
+                newname = os.path.join(target_dir, music_video_subdir, anime_dirname, newname)
             else:
                 newname = os.path.join(target_dir, anime_dirname, newname)
 
